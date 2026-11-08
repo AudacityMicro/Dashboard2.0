@@ -21,7 +21,7 @@ import java.io.File
 import java.util.concurrent.Executors
 
 /** A separate launcher entry and home-screen shortcut preserve upstream search and launch behavior. */
-class CaptureActivity : Activity() {
+open class CaptureActivity : Activity() {
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     private lateinit var editor: EditText
@@ -71,9 +71,7 @@ class CaptureActivity : Activity() {
         }
         recordButton = button("Record voice note") {
             if (recorder != null) stopRecording()
-            else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
-                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 20)
-            else startRecording()
+            else requestRecording()
         }
         button("Add image") { pick("image/*") }
         button("Import audio") { pick("audio/*") }
@@ -93,6 +91,24 @@ class CaptureActivity : Activity() {
                 if (uri != null) importUri(uri)
             }
         }
+        if (savedInstanceState == null) main.post {
+            if (!isFinishing && !isDestroyed) when (initialCaptureMode()) {
+                "text" -> {
+                    editor.requestFocus()
+                    getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                        .showSoftInput(editor, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                }
+                "voice" -> requestRecording()
+                "image" -> pick("image/*")
+            }
+        }
+    }
+    // Only the non-exported internal entry point can request an automatic capture action.
+    protected open fun initialCaptureMode(): String? = null
+    private fun requestRecording() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 20)
+        else startRecording()
     }
     override fun onSaveInstanceState(outState: Bundle) { outState.putString("draft", editor.text.toString()); super.onSaveInstanceState(outState) }
     override fun onStart() { super.onStart(); main.post(refresh) }

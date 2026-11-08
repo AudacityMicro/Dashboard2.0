@@ -35,4 +35,25 @@ class DashboardHomeTest {
             id?.let { saved -> DashboardStore(context).use { store -> store.writableDatabase.delete("local_tasks", "id=?", arrayOf(saved)) } }
         }
     }
+    @Test fun homeHasAllThreeCaptureButtonsAndTextOpensTheEditor() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val monitor = instrumentation.addMonitor(QuickCaptureActivity::class.java.name, null, false)
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-actions").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText("Text note").assertExists()
+                compose.onNodeWithText("Voice note").assertExists()
+                compose.onNodeWithText("Add image").assertExists()
+                compose.onNodeWithTag("capture-text").performScrollTo().performClick()
+                val opened = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
+                assertNotNull("Home capture button did not open capture", opened)
+                instrumentation.waitForIdleSync()
+                instrumentation.runOnMainSync {
+                    assertTrue("Text quick capture should focus the editor", opened.currentFocus is android.widget.EditText)
+                    opened.finish()
+                }
+            }
+        } finally { instrumentation.removeMonitor(monitor) }
+    }
+
 }

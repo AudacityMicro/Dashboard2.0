@@ -49,6 +49,20 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
         }
     }
     Column(modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ElevatedCard(Modifier.fillMaxWidth().testTag("capture-actions")) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Quick capture", style = MaterialTheme.typography.titleLarge)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("text" to "Text note", "voice" to "Voice note", "image" to "Add image").forEach { (mode, label) ->
+                        FilledTonalButton(modifier = Modifier.weight(1f).testTag("capture-$mode"),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp), onClick = {
+                                context.startActivity(Intent().setClassName(context.packageName,
+                                    "de.mm20.launcher2.capture.QuickCaptureActivity").putExtra("capture_mode", mode))
+                            }) { Text(label) }
+                    }
+                }
+            }
+        }
         ElevatedCard(Modifier.fillMaxWidth().testTag("agent-updates")) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

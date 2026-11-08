@@ -204,3 +204,13 @@ Added integration tests cover incoming refresh vs phone overrides, invalid-board
 retention, exported phone snapshots, and saving/checking off a task on the actual
 launcher home screen. Live Drive registration remains a prerequisite for end-to-end
 Google testing; transport integration tests use a local fake server without credentials.
+
+## Home quick-capture buttons
+
+The home tab provides **Text note**, **Voice note**, and **Add image** directly above
+Agent updates. Text note opens the focused editor and keyboard; Voice note requests
+microphone permission when needed and starts recording; Add image opens the system
+image picker. Picker cancellation leaves existing data unchanged. These automatic
+capture actions use a non-exported activity, so external share intents cannot trigger
+an automatic microphone recording. The regular Inbox entry remains available for
+reviewing captures and configuring Google Drive.
