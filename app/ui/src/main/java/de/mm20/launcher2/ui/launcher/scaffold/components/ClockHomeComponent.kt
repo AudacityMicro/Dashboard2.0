@@ -8,7 +8,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.mm20.launcher2.ui.dashboard.DashboardPanel
 import de.mm20.launcher2.ui.launcher.scaffold.LauncherScaffoldState
-import de.mm20.launcher2.ui.launcher.widgets.clock.ClockWidget
 
 internal object ClockHomeComponent : ScaffoldComponent() {
     private val scroll = ScrollState(0)
@@ -23,7 +22,6 @@ internal object ClockHomeComponent : ScaffoldComponent() {
         }
         Column(modifier.verticalScroll(scroll, enabled = !state.isDragged).padding(insets).padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            ClockWidget(modifier = Modifier.fillMaxWidth(), fillScreenHeight = false)
             DashboardPanel()
         }
     }

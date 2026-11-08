@@ -4,7 +4,8 @@ Dashboard2.0 extends the GPL-3.0 Kvaesitso Android launcher. Upstream base:
 `MM2-0/Kvaesitso@c4805f3f18d5bcf071c5287f81466efd79169b20`.
 The full upstream source, history, LICENSE and copyright notices are retained.
 Existing search, app launching, widgets and launcher settings are retained. The home tab
-adds Agent updates and To-do list cards; its clock uses a compact layout to make room.
+adds Agent updates and To-do list cards. The large clock and charging block are removed
+from the home content, leaving the Android status bar indicators.
 
 ## Use
 
@@ -167,11 +168,11 @@ Staging-file recovery is not yet exposed in the UI.
 
 ## Home tab: agent updates and to-dos
 
-The main/home tab now shows **Agent updates** and a **To-do list**, alongside the clock
-and any enabled home widgets. Add a task or check/uncheck it directly on the phone;
+The main/home tab now shows quick-capture buttons, **Agent updates** and a **To-do list**,
+plus any enabled home widgets. Add a task or check/uncheck it directly on the phone;
 changes are saved offline immediately. Completed tasks can be shown or hidden. Search
-and app launching keep their existing gestures. The home clock is compact even when
-its fill-height preference was enabled, so the new board can be reached immediately.
+and app launching keep their existing gestures. The large home clock and charging block are removed so the dashboard starts near the
+top of the screen.
 
 When Drive is connected, the same durable worker also creates and synchronizes:
 
