@@ -3,7 +3,8 @@
 Dashboard2.0 extends the GPL-3.0 Kvaesitso Android launcher. Upstream base:
 `MM2-0/Kvaesitso@c4805f3f18d5bcf071c5287f81466efd79169b20`.
 The full upstream source, history, LICENSE and copyright notices are retained.
-The existing search, app launching, widgets and launcher settings are unchanged.
+Existing search, app launching, widgets and launcher settings are retained. The home tab
+adds Agent updates and To-do list cards; its clock uses a compact layout to make room.
 
 ## Use
 
@@ -77,8 +78,8 @@ An agent can discover files by the `Dashboard-` name prefix, then read the JSON 
 follow `driveFileId`. Dashboard's private `appProperties` additionally record source
 and capture UUID for its own reconciliation. Authorize the agent's own Drive
 connection separately; this launcher does not share credentials with Dot/Muse or
-silently grant access to another application. No transcription, image OCR, AI calls,
-agent integration, or two-way editing is implemented in this first increment.
+silently grant access to another application. No transcription, image OCR, AI calls or direct Dot/Muse API integration is implemented.
+Capture files are immutable; the home board has its own agent/phone file exchange below.
 Manifests are created only after the payload upload is confirmed. Treat the manifest
 as the completion marker and ignore payload-only partial uploads until retry.
 
@@ -163,3 +164,43 @@ regressions require device validation; do not equate a compile with these checks
 Completed recordings are retained as private staging files if committing the inbox
 fails (for example, when storage is full), rather than deleting the original.
 Staging-file recovery is not yet exposed in the UI.
+
+## Home tab: agent updates and to-dos
+
+The main/home tab now shows **Agent updates** and a **To-do list**, alongside the clock
+and any enabled home widgets. Add a task or check/uncheck it directly on the phone;
+changes are saved offline immediately. Completed tasks can be shown or hidden. Search
+and app launching keep their existing gestures. The home clock is compact even when
+its fill-height preference was enabled, so the new board can be reached immediately.
+
+When Drive is connected, the same durable worker also creates and synchronizes:
+
+- `Dashboard-agent.json`: agent-owned information and assigned tasks. The phone creates
+  the empty template once and subsequently reads it; it never overwrites your agent's content.
+- `Dashboard-phone-tasks.json`: phone-owned merged task snapshot. Your agent reads this
+  to see phone-added tasks and the user's completion decisions. The phone alone writes it.
+
+Use **Copy agent file IDs** on the home card after the first successful connection to
+identify the exact files for your agent. Each installation owns its own file pair;
+reinstalling or using another phone creates another pair, which may have the same names.
+The copied IDs disambiguate them. OAuth and the agent's separate Drive authorization
+are still required. The app does not send credentials or messages to any agent.
+
+See [AGENT_BOARD.md](AGENT_BOARD.md) for the file contract and a sample board. Refresh
+on the home card to request an update. Sync also runs when the launcher resumes and
+through the existing periodic worker (about 15 minutes, subject to Android restrictions).
+The card displays the last successful sync time; cached information stays visible offline.
+Phone-added tasks and explicit completion overrides survive all incoming refreshes.
+Stable task IDs identify the same task; give a genuinely new task a new ID.
+
+Incoming JSON is limited to 512 KiB, 50 updates and 200 assigned tasks, with bounded
+plain-text fields and unique IDs. Malformed/unsupported data never replaces the last
+valid board, and does not prevent exporting phone task edits. Phone overrides take
+precedence for task completion until that task ID is retired by the agent. The first
+version supports task additions and completion/uncompletion, rather than task deletion,
+renaming, rich-text messages, notifications or a multi-device merge protocol.
+
+Added integration tests cover incoming refresh vs phone overrides, invalid-board
+retention, exported phone snapshots, and saving/checking off a task on the actual
+launcher home screen. Live Drive registration remains a prerequisite for end-to-end
+Google testing; transport integration tests use a local fake server without credentials.

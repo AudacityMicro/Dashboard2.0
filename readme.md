@@ -1,7 +1,8 @@
 # Dashboard2.0
 
 A Kvaesitso-based Android launcher with an offline text, voice and image capture inbox
-and queued Google Drive synchronization. See [DASHBOARD.md](DASHBOARD.md) for setup,
+and queued Google Drive synchronization. Its main tab includes agent updates and an
+offline to-do list backed by separate agent/phone Drive files. See [DASHBOARD.md](DASHBOARD.md) for setup,
 OAuth registration, data format, build/test commands and current limits.
 
 The source below is the original upstream project documentation. Dashboard retains

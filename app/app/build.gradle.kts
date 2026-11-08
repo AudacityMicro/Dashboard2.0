@@ -100,6 +100,7 @@ android {
 
 
 dependencies {
+    implementation(project(":data:dashboard"))
     implementation(libs.bundles.kotlin)
     implementation(libs.androidx.work)
     implementation("com.google.android.gms:play-services-auth:22.0.0")
@@ -108,6 +109,7 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
+    androidTestImplementation(libs.androidx.compose.uitest)
 
     //Android Jetpack
     implementation(libs.androidx.appcompat)

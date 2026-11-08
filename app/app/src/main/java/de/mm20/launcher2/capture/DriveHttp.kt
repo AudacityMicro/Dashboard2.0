@@ -9,7 +9,7 @@ import java.util.UUID
 internal class DriveFailure(val code: Int) : java.io.IOException("Drive request failed ($code)")
 internal object DriveHttp {
     fun request(method: String, url: String, token: String,
-        contentType: String? = null, write: ((java.io.OutputStream) -> Unit)? = null): String {
+        contentType: String? = null, maxBytes: Int = 1024 * 1024, write: ((java.io.OutputStream) -> Unit)? = null): String {
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
@@ -24,11 +24,20 @@ internal object DriveHttp {
             }
             val code = connection.responseCode
             if (code !in 200..299) throw DriveFailure(code)
-            return connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+            return connection.inputStream.use { input ->
+                val out = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = input.read(buffer); if (count < 0) break
+                    if (out.size() + count > maxBytes) throw IllegalArgumentException("Drive response exceeds limit")
+                    out.write(buffer, 0, count)
+                }
+                out.toString("UTF-8")
+            }
         } finally { connection.disconnect() }
     }
-    fun newId(token: String): String = JSONObject(request("GET",
-        "https://www.googleapis.com/drive/v3/files/generateIds?count=1&space=drive&type=files", token))
+    fun newId(token: String, api: String = "https://www.googleapis.com"): String = JSONObject(request("GET",
+        "$api/drive/v3/files/generateIds?count=1&space=drive&type=files", token))
         .getJSONArray("ids").getString(0)
 
     /** A generated ID is committed locally before upload. Repeating create cannot duplicate a file. */

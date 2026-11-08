@@ -1,33 +1,31 @@
 package de.mm20.launcher2.ui.launcher.scaffold.components
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
+import de.mm20.launcher2.ui.dashboard.DashboardPanel
 import de.mm20.launcher2.ui.launcher.scaffold.LauncherScaffoldState
 import de.mm20.launcher2.ui.launcher.widgets.clock.ClockWidget
 
 internal object ClockHomeComponent : ScaffoldComponent() {
-
-    override val drawBackground: Boolean = false
-
-    override var isAtTop: State<Boolean?> = mutableStateOf(true)
-    override var isAtBottom: State<Boolean?> = mutableStateOf(true)
-
-    @Composable
-    override fun Component(
-        modifier: Modifier,
-        insets: PaddingValues,
-        state: LauncherScaffoldState,
-    ) {
-        ClockWidget(
-            modifier = modifier
-                .padding(insets)
-                .pointerInput(Unit) {},
-            fillScreenHeight = true,
-        )
+    private val scroll = ScrollState(0)
+    override val drawBackground = false
+    override val hasIme = true
+    override val isAtTop: State<Boolean?> = derivedStateOf { !scroll.canScrollBackward }
+    override val isAtBottom: State<Boolean?> = derivedStateOf { !scroll.canScrollForward }
+    @Composable override fun Component(modifier: Modifier, insets: PaddingValues, state: LauncherScaffoldState) {
+        var previous by remember { mutableIntStateOf(scroll.value) }
+        LaunchedEffect(scroll.value) {
+            state.onComponentScroll((scroll.value - previous).toFloat()); previous = scroll.value
+        }
+        Column(modifier.verticalScroll(scroll, enabled = !state.isDragged).padding(insets).padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ClockWidget(modifier = Modifier.fillMaxWidth(), fillScreenHeight = false)
+            DashboardPanel()
+        }
     }
+    override suspend fun onDismiss(state: LauncherScaffoldState) { super.onDismiss(state); scroll.scrollTo(0) }
 }

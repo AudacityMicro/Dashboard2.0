@@ -51,6 +51,9 @@
         android:usesCleartextTraffic="true"
         tools:ignore="GoogleAppIndexingWarning">
 
+        <receiver android:name=".capture.DashboardSyncReceiver" android:exported="false">
+            <intent-filter><action android:name="${applicationId}.dashboard.SYNC" /></intent-filter>
+        </receiver>
         <activity android:name=".capture.CaptureActivity" android:exported="true"
             android:label="Dashboard Inbox" android:theme="@android:style/Theme.Material.Light.NoActionBar">
             <intent-filter>
