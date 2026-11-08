@@ -22,7 +22,7 @@ object SyncQueue {
         enqueue(context)
     }
     fun enqueue(context: Context) {
-        WorkManager.getInstance(context).enqueueUniqueWork("capture-sync", ExistingWorkPolicy.APPEND_OR_REPLACE,
+        WorkManager.getInstance(context).enqueueUniqueWork("capture-sync", ExistingWorkPolicy.KEEP,
             OneTimeWorkRequestBuilder<DriveSyncWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS).build())

@@ -91,8 +91,10 @@ restore a database whose payloads or credentials are missing. Device loss/uninst
 before sync loses local data. Disk contents rely on Android sandbox/device encryption;
 there is no additional per-note application encryption.
 
-WorkManager uses network constraints, exponential backoff, a serialized unique work
-chain and a 15-minute periodic recovery enqueue. Startup also schedules recovery.
+WorkManager uses network constraints, exponential backoff, a single unique worker
+and a 15-minute periodic recovery enqueue. Enqueues coalesce while a worker is pending
+or running, preventing unlimited work-chain growth while offline. A capture saved
+as a worker finishes its snapshot may wait until the periodic recovery. Startup also schedules recovery.
 Android background restrictions can delay work; force-stop requires reopening the app.
 Every Drive ID is generated and committed locally **before** upload. Retries first
 check the same ID, so network loss after remote creation cannot produce a duplicate.
