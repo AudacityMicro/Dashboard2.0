@@ -1,3 +1,14 @@
+# Dashboard2.0
+
+A Kvaesitso-based Android launcher with an offline text, voice and image capture inbox
+and queued Google Drive synchronization. See [DASHBOARD.md](DASHBOARD.md) for setup,
+OAuth registration, data format, build/test commands and current limits.
+
+The source below is the original upstream project documentation. Dashboard retains
+Kvaesitso's GPL-3.0 license and attribution; it is an independent customization.
+
+---
+
 # Kvaesitso
 
 <img src="https://raw.githubusercontent.com/MM2-0/Kvaesitso/main/assets/icons/ic_launcher.png" width="128">
