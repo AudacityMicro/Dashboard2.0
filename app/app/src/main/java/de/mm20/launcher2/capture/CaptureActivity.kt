@@ -13,6 +13,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.*
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.gms.auth.api.identity.Identity
 import java.io.File
 import java.util.concurrent.Executors
@@ -35,7 +38,17 @@ class CaptureActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 32, 24, 24) }
-        val scroll = ScrollView(this).apply { addView(layout) }; setContentView(scroll)
+        val scroll = ScrollView(this).apply { addView(layout) }
+        ViewCompat.setOnApplyWindowInsetsListener(scroll) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        setContentView(scroll)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true; isAppearanceLightNavigationBars = true
+        }
+        ViewCompat.requestApplyInsets(scroll)
         layout.addView(TextView(this).apply { text = "Dashboard Inbox"; textSize = 26f })
         status = TextView(this); layout.addView(status)
         editor = EditText(this).apply {
@@ -138,7 +151,10 @@ class CaptureActivity : Activity() {
         recorder = null; recording = null; recordButton.text = "Record voice note"
         try {
             active.stop()
-            background({ try { InboxStore(this).use { it.save("voice", "audio/mp4", source = file.inputStream()) } } finally { file.delete() } }) { saved() }
+            background({
+                InboxStore(this).use { it.save("voice", "audio/mp4", source = file.inputStream()) }
+                file.delete() // Retain the completed recording if inbox commit fails.
+            }) { saved() }
         } catch (_: Exception) { file.delete(); message("Recording was too short to save") }
         finally { active.release() }
     }

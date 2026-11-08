@@ -153,3 +153,13 @@ Manual acceptance on a disposable Google-enabled emulator/device:
 
 Live OAuth consent, Drive writes, reboot/network fault injection and launcher gesture
 regressions require device validation; do not equate a compile with these checks.
+
+## Primary API references
+
+- [Google Android authorization](https://developer.android.com/identity/authorization)
+- [Drive pre-generated IDs](https://developers.google.com/workspace/drive/api/guides/manage-uploads#use_a_pre-generated_id_to_upload_files)
+- [AndroidX Test release compatibility](https://developer.android.com/jetpack/androidx/releases/test)
+
+Completed recordings are retained as private staging files if committing the inbox
+fails (for example, when storage is full), rather than deleting the original.
+Staging-file recovery is not yet exposed in the UI.
