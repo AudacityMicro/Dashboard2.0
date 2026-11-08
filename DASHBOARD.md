@@ -131,6 +131,21 @@ can configure/download the required SDK. Set `JAVA_HOME` and `ANDROID_HOME`, or 
 ./gradlew :app:app:connectedDefaultDebugAndroidTest
 ```
 
+Check that the connected-test report contains a nonzero test count. With the current
+Android 17 emulator/toolchain, Gradle may report success with zero discovered tests.
+In that case, install both built APKs and invoke the runner directly (use your SDK's
+`adb`, and `adb -s <serial>` if multiple devices are connected):
+
+```sh
+adb install -r app/app/build/outputs/apk/default/debug/app-default-debug.apk
+adb install -r app/app/build/outputs/apk/androidTest/default/debug/app-default-debug-androidTest.apk
+adb shell am instrument -w io.github.audacitymicro.dashboard.debug.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require `OK (15 tests)`, rather than a shell exit code alone. Allocate at least 4 GiB
+RAM to the Google-enabled test emulator to avoid startup memory pressure interrupting
+the test process. Test only on a disposable device/emulator.
+
 APK: `app/app/build/outputs/apk/default/debug/app-default-debug.apk`.
 Unit tests cover retry classification and account isolation. Instrumentation tests
 cover local persistence across DB reopening, stable Drive ID/account retention on
@@ -167,6 +182,14 @@ fails (for example, when storage is full), rather than deleting the original.
 Staging-file recovery is not yet exposed in the UI.
 
 ## Home tab: agent updates and to-dos
+
+From first launch, **Set up your agent** offers **Copy agent setup prompt**. Connect
+Drive and let it sync, then copy the prompt to include the exact board, phone-state
+and `Dashboard-agent-instructions.md` file IDs. Before connection the button still
+copies useful setup instructions and asks for a fresh copy after sync. The Drive
+guide is created once and preserves your edits. The prompt tells your agent to read
+that guide before each run and check for changes. Agree a monitoring schedule with
+your agent; the launcher cannot schedule another agent itself.
 
 The main/home tab now shows quick-capture buttons, **Agent updates** and a **To-do list**,
 plus any enabled home widgets. Add a task or check/uncheck it directly on the phone;

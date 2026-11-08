@@ -2,6 +2,7 @@ package de.mm20.launcher2.capture
 
 import android.content.Context
 import de.mm20.launcher2.dashboard.DashboardStore
+import de.mm20.launcher2.dashboard.AgentSetup
 
 /** The agent owns the incoming board; only this device writes the phone-state file. */
 internal object DashboardSync {
@@ -31,6 +32,12 @@ internal object DashboardSync {
                 DriveHttp.upload(token, phoneId, "dashboard-phone-v1", "Dashboard-phone-tasks.json", "application/json", bytes = phone, api = api)
                 DriveHttp.request("PATCH", "$api/upload/drive/v3/files/$phoneId?uploadType=media", token,
                     "application/json") { it.write(phone) }
+                // Create once using a durable ID. Reconciliation validates identity without
+                // overwriting guidance the user has subsequently edited in Drive.
+                val instructionsId = remoteId("instructionsFile")
+                DriveHttp.upload(token, instructionsId, "dashboard-instructions-v1", AgentSetup.INSTRUCTIONS_NAME,
+                    "text/markdown", bytes = AgentSetup.instructions.toByteArray(Charsets.UTF_8), api = api)
+                store.setMeta("instructionsReady", "true")
                 store.setMeta("lastSync", System.currentTimeMillis().toString())
                 store.setMeta("status", if (invalidBoard) "Agent file is invalid; showing your saved board. Phone task changes synced."
                     else "Drive connected. Task changes are saved on this phone first.")

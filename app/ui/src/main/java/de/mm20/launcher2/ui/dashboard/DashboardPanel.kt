@@ -31,6 +31,7 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
     var draft by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     var showCompleted by rememberSaveable { mutableStateOf(false) }
+    var copiedSetup by remember { mutableStateOf(false) }
     suspend fun reload() { board = withContext(Dispatchers.IO) { DashboardStore(app).use { it.snapshot() } } }
     fun sync() { context.sendBroadcast(Intent("${context.packageName}.dashboard.SYNC").setPackage(context.packageName)) }
     fun change(work: (DashboardStore) -> Unit) { scope.launch {
@@ -49,6 +50,23 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
         }
     }
     Column(modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ElevatedCard(Modifier.fillMaxWidth().testTag("agent-setup")) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Set up your agent", style = MaterialTheme.typography.titleLarge)
+                Text(if (board.instructionsFileId.isBlank())
+                    "Connect Google Drive below, then copy this prompt to your agent. It explains how to use your captures, updates and tasks."
+                    else "Copy this prompt to your agent. It includes your Drive file IDs and asks your agent to check the instructions file for current guidance.")
+                FilledTonalButton(modifier = Modifier.testTag("copy-agent-setup"), onClick = {
+                    context.getSystemService(android.content.ClipboardManager::class.java)
+                        .setPrimaryClip(android.content.ClipData.newPlainText("Dashboard agent setup", AgentSetup.prompt(board)))
+                    copiedSetup = true
+                }) { Text("Copy agent setup prompt") }
+                if (copiedSetup) Text(if (board.instructionsFileId.isBlank())
+                    "Copied. After Drive syncs, copy again to include your file IDs."
+                    else "Copied. Paste it into your agent's chat to finish setup.",
+                    modifier = Modifier.testTag("agent-setup-copied"), style = MaterialTheme.typography.labelMedium)
+            }
+        }
         ElevatedCard(Modifier.fillMaxWidth().testTag("capture-actions")) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Quick capture", style = MaterialTheme.typography.titleLarge)
@@ -85,7 +103,7 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
                 TextButton(enabled = board.agentFileId.isNotEmpty(), onClick = {
                     val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Dashboard agent files",
-                        "Agent writes Dashboard-agent.json: ${board.agentFileId}\nAgent reads Dashboard-phone-tasks.json: ${board.phoneFileId}\nKeep schemaVersion 1 and stable task IDs. Never write the phone-owned file."))
+                        "Agent writes Dashboard-agent.json: ${board.agentFileId}\nAgent reads Dashboard-phone-tasks.json: ${board.phoneFileId}\nAgent reads ${AgentSetup.INSTRUCTIONS_NAME}: ${board.instructionsFileId.ifBlank { "Pending first successful sync" }}\nKeep schemaVersion 1 and stable task IDs. Never write the phone-owned file."))
                 }) { Text("Copy agent file IDs") }
             }
         }

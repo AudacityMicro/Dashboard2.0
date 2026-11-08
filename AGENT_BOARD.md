@@ -1,5 +1,26 @@
 # Agent home-board contract (v1)
 
+## Copy setup from the launcher
+
+The home screen shows **Set up your agent** from first launch. Tap **Copy agent setup
+prompt** and paste it into your agent. The button also works offline; before the first
+successful Drive sync it explains how to connect and asks you to copy again afterward.
+After sync, the prompt includes all three exact Drive file IDs and the full contract.
+
+Sync creates `Dashboard-agent-instructions.md` once alongside the two JSON files.
+The phone preserves later edits to that guide. Edit its contents in Drive to customize
+your agent's guidance; preserve the file itself and its ID. The agent should read it
+at setup and before each processing run, detect changes, and defer writes if it cannot
+read the guide. The prompt asks the agent to agree a checking frequency and configure
+a supported schedule. Copying it does not itself start monitoring. User instructions
+and agent safety rules still take precedence over file contents.
+
+The guide uses the same durable preallocated-ID/reconciliation mechanism as captures.
+It is included in setup prompts only after remote creation or reconciliation succeeds.
+Upgrading an existing installation creates the additional guide at its next sync;
+it does not replace existing boards or phone tasks. If the guide is trashed or its
+identity changes, sync reports a file conflict instead of overwriting it.
+
 Connect your own authorized Google Drive tool. The phone's **Copy agent file IDs**
 button supplies the two exact IDs after its first sync. Do not request the phone's
 OAuth tokens, a service-account key, or a Google password.

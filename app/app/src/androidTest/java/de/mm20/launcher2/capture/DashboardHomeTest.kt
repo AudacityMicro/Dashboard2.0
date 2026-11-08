@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import de.mm20.launcher2.dashboard.DashboardStore
+import de.mm20.launcher2.dashboard.AgentSetup
 import de.mm20.launcher2.ui.launcher.LauncherActivity
 import org.junit.Assert.*
 import org.junit.Rule
@@ -12,6 +13,21 @@ import org.junit.Test
 
 class DashboardHomeTest {
     @get:Rule val compose = createEmptyComposeRule()
+    @Test fun setupPromptIsAvailableOnHomeBeforeDriveConnection() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        ActivityScenario.launch(LauncherActivity::class.java).use {
+            compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("copy-agent-setup").performScrollTo().performClick()
+            compose.onNodeWithTag("agent-setup-copied").assertExists()
+            compose.runOnIdle {
+                val clip = context.getSystemService(android.content.ClipboardManager::class.java).primaryClip
+                val prompt = requireNotNull(clip).getItemAt(0).text.toString()
+                assertTrue(prompt.contains(AgentSetup.INSTRUCTIONS_NAME))
+                assertTrue(prompt.contains("BEFORE EACH Dashboard"))
+                assertTrue(prompt.contains("Never request my Google password"))
+            }
+        }
+    }
     @Test fun mainHomeContainsAgentUpdatesAndSavesAndChecksOffATask() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val title = "Home task " + java.util.UUID.randomUUID()
