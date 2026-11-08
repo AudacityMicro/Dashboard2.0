@@ -55,6 +55,7 @@ class LauncherApplication : Application(), CoroutineScope, ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        de.mm20.launcher2.capture.SyncQueue.install(this)
 
         if (BuildConfig.BUILD_TYPE == "debug") initDebugMode()
 

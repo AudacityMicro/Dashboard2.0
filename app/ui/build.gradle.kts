@@ -72,6 +72,7 @@ android {
 
 
 dependencies {
+    implementation(project(":data:dashboard"))
     implementation(libs.bundles.kotlin)
 
     implementation(libs.androidx.compose.runtime)

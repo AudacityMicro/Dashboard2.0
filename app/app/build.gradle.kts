@@ -30,21 +30,12 @@ android {
         }
     }
     defaultConfig {
-        applicationId = "de.mm20.launcher2"
+        applicationId = "io.github.audacitymicro.dashboard"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = System.getenv("VERSION_CODE_OVERRIDE")?.toIntOrNull() ?: 2026091500
         versionName = "1.41.0"
-        signingConfig = signingConfigs.getByName("debug")
-    }
-
-    signingConfigs {
-        create("gh-actions") {
-            storeFile = file("${System.getenv("RUNNER_TEMP")}/keystore/keystore.jks")
-            storePassword = System.getenv("KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
-        }
     }
 
     buildTypes {
@@ -66,7 +57,7 @@ android {
             matchingFallbacks += "release"
             applicationIdSuffix = ".nightly"
             versionNameSuffix = "-${LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))}-nightly"
-            signingConfig = signingConfigs.findByName("gh-actions")
+            signingConfig = null
 
             isMinifyEnabled = true
             isShrinkResources = true
@@ -109,7 +100,16 @@ android {
 
 
 dependencies {
+    implementation(project(":data:dashboard"))
     implementation(libs.bundles.kotlin)
+    implementation(libs.androidx.work)
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
+    testImplementation(libs.junit)
+    androidTestImplementation("com.squareup.okhttp3:mockwebserver:5.5.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
+    androidTestImplementation(libs.androidx.compose.uitest)
 
     //Android Jetpack
     implementation(libs.androidx.appcompat)

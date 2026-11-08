@@ -44,6 +44,7 @@ espressoCore = "3.6.1"
 osmOpeningHours = "0.4.0"
 
 [libraries]
+androidx-compose-uitest = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose" }
 mustache-compiler = { module = "com.github.spullara.mustache.java:compiler", version.ref = "mustache" }
 
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jacksonCore" }
