@@ -45,6 +45,13 @@ class ReleaseClientTest {
         val raw = JSONArray().put(release("v0.2.0-preview.1")).put(release("v0.1.0")).toString()
         assertEquals("v0.1.0", ReleaseClient.parse(raw, requireNotNull(ReleaseVersion.parse("0.1.0")))?.tag)
     }
+    @Test fun summaryComesFromTheSelectedReleaseWithLegacyAndMissingNotesFallbacks() {
+        val older = release("v0.1.0-preview.4").put("body", "What's new: Older change.")
+        val newer = release("v0.1.0-preview.18").put("body", "What's new: Brief **patch notes** before installation.\n\nLong details.")
+        assertEquals("Brief patch notes before installation.", ReleaseClient.parse(JSONArray().put(newer).put(older).toString(), current)?.summary)
+        assertEquals("Legacy changes.", ReleaseClient.parse(JSONArray().put(newer.put("body", "Legacy changes.\n\nDetails")).toString(), current)?.summary)
+        assertEquals(ReleaseNotes.UNAVAILABLE, ReleaseClient.parse(JSONArray().put(newer.put("body", JSONObject.NULL)).toString(), current)?.summary)
+    }
     @Test fun rateLimitAndRedirectAreFailuresRatherThanUpToDate() {
         MockWebServer().use { server ->
             server.start()

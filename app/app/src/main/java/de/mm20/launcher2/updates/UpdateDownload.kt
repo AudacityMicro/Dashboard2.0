@@ -20,6 +20,8 @@ internal class UpdateDownload(private val context: Context) {
         }
     }
     val id get() = prefs.getLong("id", -1)
+    val summary get() = ReleaseNotes.summary(prefs.getString("summary", "").orEmpty())
+    val tag get() = prefs.getString("tag", "").orEmpty()
     val ready: File? get() = prefs.getString("ready", null)?.let { File(context.cacheDir, "updates/$it") }?.takeIf { it.isFile }
     fun start(release: DashboardRelease) {
         require(release.sha256.matches(Regex("[0-9a-f]{64}")) && release.size in 1..MAX_SIZE) { "Release has no valid checksum or size" }
@@ -32,6 +34,7 @@ internal class UpdateDownload(private val context: Context) {
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
         val downloadId = manager.enqueue(request)
         if (!prefs.edit().clear().putLong("id", downloadId).putString("sha256", release.sha256)
+            .putString("summary", release.summary).putString("tag", release.tag)
             .putLong("size", release.size).putLong("base", de.mm20.launcher2.BuildConfig.VERSION_CODE.toLong()).commit()) {
             manager.remove(downloadId); throw java.io.IOException("Could not save download state")
         }
