@@ -289,7 +289,8 @@ class DashboardHomeTest {
                         ready
                     }
                     show.check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isNotChecked()))
-                        .perform(androidx.test.espresso.action.ViewActions.scrollTo(), androidx.test.espresso.action.ViewActions.click())
+                        .perform(androidx.test.espresso.action.ViewActions.scrollTo())
+                    instrumentation.runOnMainSync { requireNotNull(setupSwitch).performClick() }
                     compose.waitUntil(5000) { DashboardStore(context).use { !it.snapshot().setupHidden } }
                     instrumentation.runOnMainSync { inbox.finish() }
                 } finally { instrumentation.removeMonitor(monitor) }

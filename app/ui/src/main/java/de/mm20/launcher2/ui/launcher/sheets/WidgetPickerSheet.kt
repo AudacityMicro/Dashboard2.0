@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
@@ -306,7 +307,7 @@ fun WidgetPickerSheet(
 
         val builtIn by viewModel.builtInWidgets.collectAsState(emptyList())
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().testTag("widget-picker-list"),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
@@ -385,6 +386,7 @@ fun WidgetPickerSheet(
                                     CalendarWidget.Type -> CalendarWidget(id)
                                     MusicWidget.Type -> MusicWidget(id)
                                     AppsWidget.Type -> AppsWidget(id)
+                                    AppsWidget.FavoritesOnlyType -> AppsWidget.favoritesOnly(id)
                                     NotesWidget.Type -> NotesWidget(id)
                                     else -> return@clickable
                                 }
@@ -402,7 +404,7 @@ fun WidgetPickerSheet(
                                         WeatherWidget.Type -> R.drawable.light_mode_24px
                                         CalendarWidget.Type -> R.drawable.today_24px
                                         MusicWidget.Type -> R.drawable.music_note_24px
-                                        AppsWidget.Type -> R.drawable.apps_24px
+                                        AppsWidget.Type, AppsWidget.FavoritesOnlyType -> R.drawable.apps_24px
                                         NotesWidget.Type -> R.drawable.sticky_note_2_24px
                                         else -> R.drawable.widgets_24px
                                     }

@@ -427,6 +427,28 @@ retention, exported phone snapshots, and saving/checking off a task on the actua
 launcher home screen. Live Drive registration remains a prerequisite for end-to-end
 Google testing; transport integration tests use a local fake server without credentials.
 
+## Favorite apps widget
+
+Choose **Edit layout → Add widget → Favorite apps** to add the icons-only variant.
+It uses the same icons, shapes, badges, app launching and pinned ordering as the
+normal Apps widget, but displays only favorited applications. It excludes frequently
+used suggestions, pinned tags and other favorite item types, and respects the
+launcher's hidden-app and profile visibility rules. Changes to your favorites
+update the widget automatically. Manage favorites through the launcher's existing
+favorites controls or app search; this widget has no tag selector or edit button.
+
+There is no title, visible app label, control row or empty-state banner. Accessible
+app names remain available to screen readers. The regular **Apps** option retains
+its existing behavior. Narrow spans wrap icons into fewer columns while preserving
+the normal icon size, with vertical scrolling for overflow. The widget participates
+in the existing per-screen layouts and long-press move/resize handles. Exact-size,
+Hide and Remove everywhere remain available through layout editing, outside the
+widget's content; there is no widget-specific settings button for this variant.
+
+The variant is stored as an additional, backward-compatible configuration field on
+the existing Apps widget model, so persistence and widget backups retain it without
+a database migration. Existing Apps widgets default to their original behavior.
+
 ## Home quick-capture buttons
 
 The fixed bottom dock provides **Text**, **Voice** (hold), **Photo**, **Upload**. See Home capture tools above for holding, permissions, transcription

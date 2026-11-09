@@ -14,6 +14,7 @@ data class FavoritesWidgetConfig(
     val compactTags: Boolean = false,
     val tagList: List<String> = emptyList(),
     val skipRows: Int = 0,
+    val favoritesOnly: Boolean = false,
 )
 
 data class AppsWidget(
@@ -30,10 +31,13 @@ data class AppsWidget(
     }
 
     override fun getLabel(context: Context): String {
-        return context.getString(R.string.widget_name_apps)
+        return context.getString(if (config.favoritesOnly) R.string.widget_name_favorite_apps else R.string.widget_name_apps)
     }
 
     companion object {
         const val Type = "favorites"
+        // Picker variant; both variants retain the existing database/backup widget type.
+        const val FavoritesOnlyType = "favorite_apps"
+        fun favoritesOnly(id: UUID) = AppsWidget(id, FavoritesWidgetConfig(favoritesOnly = true, editButton = false))
     }
 }

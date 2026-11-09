@@ -27,6 +27,7 @@ fun SearchResultGrid(
     columns: Int = LocalGridSettings.current.columnCount,
     reverse: Boolean = false,
     highlightedItem: SavableSearchable? = null,
+    allowLongClick: Boolean = true,
     transitionKey: Any? = items
 ) {
     AnimatedContent(
@@ -53,6 +54,7 @@ fun SearchResultGrid(
                                         .weight(1f),
                                     item = item,
                                     showLabels = showLabels,
+                                    allowLongClick = allowLongClick,
                                     highlight = item.key == highlightedItem?.key
                                 )
                             }

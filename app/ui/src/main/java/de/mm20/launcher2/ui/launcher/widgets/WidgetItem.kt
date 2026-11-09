@@ -79,7 +79,7 @@ fun WidgetItem(
         backgroundOpacity = backgroundOpacity,
     ) {
         Column(if (gridMode) Modifier.fillMaxSize() else Modifier) {
-            AnimatedVisibility(editMode) {
+            AnimatedVisibility(editMode && !(widget is AppsWidget && widget.config.favoritesOnly)) {
                 Row(
                     modifier = Modifier.padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
