@@ -3,9 +3,7 @@ package de.mm20.launcher2.ui.launcher.widgets.favorites
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,8 +23,6 @@ import de.mm20.launcher2.data.customattrs.utils.withCustomLabels
 import de.mm20.launcher2.searchable.SavableSearchableRepository
 import de.mm20.launcher2.searchable.VisibilityLevel
 import de.mm20.launcher2.ui.R
-import de.mm20.launcher2.ui.launcher.search.common.grid.SearchResultGrid
-import de.mm20.launcher2.ui.locals.LocalGridSettings
 import de.mm20.launcher2.widgets.AppsWidget
 import kotlinx.coroutines.flow.combine
 import org.koin.core.component.KoinComponent
@@ -56,7 +52,6 @@ fun SelectedAppsWidget(widget: AppsWidget, onWidgetUpdate: (AppsWidget) -> Unit)
     val selected = remember(byKey, widget.config.selectedAppKeys) {
         widget.config.selectedAppKeys.distinct().mapNotNull(byKey::get)
     }
-    val grid = LocalGridSettings.current
     Column(Modifier.fillMaxSize().testTag("selected-apps-${widget.id}")) {
         Box(Modifier.fillMaxWidth()) {
             IconButton(onClick = { choosing = true }, modifier = Modifier.align(Alignment.TopEnd)
@@ -64,12 +59,7 @@ fun SelectedAppsWidget(widget: AppsWidget, onWidgetUpdate: (AppsWidget) -> Unit)
                 Icon(painterResource(R.drawable.more_vert_24px), stringResource(R.string.widget_select_apps))
             }
         }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
-            val columns = ((maxWidth - 8.dp) / (grid.iconSize.dp + 24.dp)).toInt()
-                .coerceIn(1, grid.columnCount.coerceAtLeast(1))
-            if (selected.isNotEmpty()) SearchResultGrid(selected, showLabels = false,
-                columns = columns, allowLongClick = false)
-        }
+        AppWidgetIconGrid(selected, Modifier.weight(1f))
     }
     if (choosing) {
         // Draft changes are local to this dialog, survive rotation, and take effect only on Save.

@@ -57,13 +57,14 @@ class GridScreenTest {
             ui.setOrientation(ScreenOrientation.Portrait)
             runBlocking { ui.orientation.first { it == ScreenOrientation.Portrait } }
             ActivityScenario.launch(LauncherActivity::class.java).use {
-                compose.waitUntil(10000) { compose.onAllNodesWithTag("widget-grid-Portrait").fetchSemanticsNodes().isNotEmpty() }
+                // Orientation changes recreate the Activity; no Compose root may exist briefly.
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("widget-grid-Portrait").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                 compose.onNodeWithTag("agent-updates").assertDoesNotExist()
                 compose.onNodeWithTag("todo-list").assertDoesNotExist()
                 compose.onNodeWithText("Agent updates").assertDoesNotExist()
                 compose.onNodeWithText("To-do list").assertDoesNotExist()
                 DashboardStore(context).use { store -> store.acceptBoard("""{"schemaVersion":1,"updates":[{"id":"sample","title":"Review today's plan","body":"Sample: review your notes and prepare your next steps."}],"tasks":[{"id":"sample-task","title":"Review captured notes","completed":false}]}""") }
-                compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-updates").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-updates").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                 val updates = compose.onNodeWithTag("agent-updates").getUnclippedBoundsInRoot()
                 val tasks = compose.onNodeWithTag("todo-list").getUnclippedBoundsInRoot()
                 assertEquals(updates.top, tasks.top); assertTrue(updates.right <= tasks.left)
@@ -77,16 +78,16 @@ class GridScreenTest {
                 screenshot("grid-home-editor.png")
                 compose.onNodeWithText("Done").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
                 ui.setOrientation(ScreenOrientation.Landscape)
-                compose.waitUntil(15000) { compose.onAllNodesWithTag("widget-grid-Landscape").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(15000) { compose.onAllNodesWithTag("widget-grid-Landscape").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                 compose.waitForIdle(); screenshot("grid-home-landscape.png")
                 if (InstrumentationRegistry.getArguments().getString("screenshots") == "true" && android.os.Build.MODEL.contains("sdk")) {
                     shell("wm size 1800x2200"); resized = true
-                    compose.waitUntil(15000) { compose.onAllNodesWithTag("widget-grid-Unfolded").fetchSemanticsNodes().isNotEmpty() }
+                    compose.waitUntil(15000) { compose.onAllNodesWithTag("widget-grid-Unfolded").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                     compose.waitForIdle(); screenshot("grid-home-unfolded.png")
                 }
                 compose.onNodeWithTag("search-overflow-menu").performClick()
                 compose.onNodeWithTag("edit-grid-menu").performClick()
-                compose.waitUntil(5000) { compose.onAllNodesWithTag("grid-item-widget-${sampleWidget.id}").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("grid-item-widget-${sampleWidget.id}").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                 compose.onNode(hasTestTag("grid-item-widget-${sampleWidget.id}") and hasAnyAncestor(hasTestTag("grid-page-home"))).performScrollTo().performTouchInput { longClick() }
                 compose.onNodeWithTag("grid-resize-widget-${sampleWidget.id}").performScrollTo().performClick()
                 compose.onNodeWithTag("grid-edit-w").performTextReplacement("4")
@@ -94,12 +95,12 @@ class GridScreenTest {
                 compose.onNodeWithText("Save layout").performClick()
                 val activeProfile = if (resized) GridProfile.Unfolded else GridProfile.Landscape
                 compose.waitUntil(5000) { WidgetGridStore(context).load("home", activeProfile).cells["widget-${sampleWidget.id}"]?.height == 4 }
-                compose.waitUntil(5000) { compose.onAllNodesWithText("Done").filter(isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(5000) { compose.onAllNodesWithText("Done").filter(isEnabled()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                 compose.onNodeWithText("Done").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
                 compose.waitUntil(5000) { GridEditing.target == null }
                 compose.waitForIdle()
                 runBlocking { kotlinx.coroutines.withTimeout(10000) { ui.homeScreenWidgets.first { it } } }
-                compose.waitUntil(10000) { compose.onAllNodesWithTag("grid-item-widget-${sampleWidget.id}").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("grid-item-widget-${sampleWidget.id}").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
             }
         } finally {
             GridEditing.active = false
