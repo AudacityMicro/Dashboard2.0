@@ -18,7 +18,7 @@ verify its own scheduler, update existing schedules and keep unchanged checks qu
 Copying it does not itself start monitoring. User instructions
 and agent safety rules still take precedence over file contents.
 
-### Starter guide version 5
+### Starter guide version 6
 
 The starter prompt explicitly authorizes the agent to maintain its own guide in
 place, merge user changes, keep a recoverable prior version and record revisions.
@@ -36,7 +36,7 @@ commitments, authorization boundaries and deduplication history; larger ledgers 
 indexed archives rather than silently dropping records. External actions require
 reconciliation after an interruption, rather than assuming exactly-once execution.
 
-The version 5 prompt asks an agent receiving an older guide to merge the new guidance
+The version 6 prompt asks an agent receiving an older guide to merge the new guidance
 into that same file while preserving customizations. The phone still never overwrites
 an existing guide. Existing installations must copy the updated setup prompt to their
 agent to apply this change; installing an APK alone does not modify an old Drive guide.
@@ -47,7 +47,7 @@ the copied setup prompt and the initial Drive upload.
 
 ### Digest and archive provided notes
 
-The version 5 guide authorizes the agent to manage Dashboard captures and other files
+The version 6 guide authorizes the agent to manage Dashboard captures and other files
 the user explicitly provides for this workflow. It reads/interprets the original,
 merges useful information into `Dashboard-agent-memory.md` (the context document),
 and verifies context/state/task writes before moving originals. Unsupported or
@@ -97,6 +97,22 @@ stable task ID. Honor these choices in your planning. Phone-added IDs start with
 agent board. There is no task deletion/edit-title protocol or multi-device merging yet.
 
 ## Write information and assigned tasks
+
+Starter guide v6 makes the board a concise daily briefing: important notes and
+reminders, upcoming commitments, preparation, deadlines and useful next actions.
+Use authorized context to anticipate needs; never invent priorities or commitments.
+Aim for 3–5 useful updates when warranted, ordered by urgency, and remove stale
+information. Fewer updates or an empty list is preferable to filler. Weather belongs
+only when a current, verified forecast for a known relevant location changes plans
+or suggests a useful action. Do not guess location or reuse stale forecasts.
+
+Keep all app/setup explanations, instruction summaries, connection confirmations,
+monitoring reports and other agent meta commentary off the board. Remove old
+agent-authored status cards such as `agent-connected`, while preserving useful
+content and user assignments. Discuss operational issues directly with the user
+and keep internal records in agent state. This changes starter instructions, not
+existing Drive guides automatically; send the updated copied prompt to the agent
+so it can merge the guidance and clean up obsolete cards.
 
 Update the contents of the existing `Dashboard-agent.json` **by its supplied file ID**.
 Preserve the file ID and `schemaVersion: 1`. Do not replace the file with a new Drive

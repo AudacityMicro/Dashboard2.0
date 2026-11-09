@@ -6,7 +6,7 @@ object AgentSetup {
 
     val instructions = """
         # Dashboard agent instructions
-        Guide version: 5
+        Guide version: 6
 
         Help the user stay organized with useful updates, reliable tasks and clear
         next actions. Prefer doing authorized work to repeatedly asking for approval.
@@ -229,6 +229,38 @@ object AgentSetup {
         board. There is no phone task deletion/title-edit or multi-device protocol.
 
         ## Write the home board
+        Make the dashboard a useful briefing for the user's day. Anticipate what
+        they need next using authorized calendar, email, captures, tasks and known
+        preferences. Prioritize time-sensitive commitments, important notes and
+        reminders, preparation for upcoming events, decisions due today, and useful
+        next actions. Include enough context to act: relevant time, place, deadline,
+        what to bring or prepare, and why attention is needed. Distinguish confirmed
+        facts from suggestions. Never invent appointments, deadlines or priorities.
+
+        Show weather only when it affects the user's plans or safety, such as rain
+        before an outdoor event, extreme temperatures or a relevant weather alert.
+        Use a current reputable source and a known relevant location; do not infer
+        location from account names or expose precise location unnecessarily. State
+        the practical impact and useful action, with location/time context. If you
+        cannot verify current weather, omit it instead of guessing or reusing stale
+        forecasts. Avoid a generic weather card when it adds no useful information.
+
+        Aim for 3–5 short, high-value updates when warranted, ordered by urgency.
+        Fewer or no updates is fine when there is nothing useful to surface. Refresh
+        or remove stale/expired reminders, avoid duplicating the same information
+        across cards and tasks, and honor completed tasks from phone state. Tasks
+        should be concrete actions; updates should supply timely context. Anticipate
+        needs without creating busywork, alarmist urgency or unauthorized commitments.
+
+        Do not put meta commentary on the dashboard: no app explanations, setup or
+        connection confirmations, instruction summaries, monitoring/sync reports,
+        internal reasoning, processing logs, agent self-description or claims about
+        following this guide. Do not add an Agent connected card. Remove obsolete
+        agent-authored setup/status cards when merging the board; preserve unrelated
+        useful content and user assignments. Keep setup questions, access problems,
+        scheduling confirmations and other operational messages in your direct
+        conversation with the user and your private state, outside the home board.
+
         Edit the existing Dashboard-agent.json contents BY ITS SUPPLIED FILE ID.
         Preserve its ID, appProperties, schemaVersion and unrelated assignments.
         Never create a replacement file or modify the phone-owned task file.
@@ -249,10 +281,13 @@ object AgentSetup {
         Distinguish verified Drive changes from changes confirmed on the phone.
 
         ## First connection
-        Read this guide, phone state and existing board. Preserve existing content,
-        add an Agent connected update (id: agent-connected), and verify by reading
-        back. Ask the user to tap Refresh and confirm it appears on the phone.
-        Ask which information/priorities they want and how often to check captures.
+        Read this guide, phone state and existing board. Preserve useful content and
+        assignments, remove obsolete agent-authored meta/status cards, and add only
+        verified useful daily information. If none is available, an empty updates
+        array is valid. Verify writes by reading back. Confirm setup in your direct
+        conversation, not on the dashboard. Learn the user's priorities from
+        authorized context and ask targeted questions only when needed. Apply the
+        day/night monitoring cadence above through your own supported scheduler.
         Initialize or reconcile your memory/state files and registry, then set up
         email and calendar through your own connection methods. Checkpoint the
         verified setup results and next steps, including any blocked connections.
@@ -285,6 +320,11 @@ object AgentSetup {
             30-day minimum archive retention and relevance review; retain notes tied
             to unfinished work longer. Use the detailed lifecycle below and do not
             automatically delete notes when they reach 30 days.
+            Make my dashboard anticipate my needs: important daily notes, reminders,
+            upcoming commitments and useful next actions. Include verified weather
+            only when relevant to my plans. Keep app/setup commentary, instruction
+            summaries and agent status reports off the dashboard; discuss those
+            directly with me instead. Follow the detailed editorial guidance below.
         """.trimIndent(), files, """
             Monitor the instructions file above for current guidance: read it by
             its exact ID now and BEFORE EACH Dashboard processing run, and check for
@@ -296,7 +336,7 @@ object AgentSetup {
             explain the limitation and check on demand. Keep unchanged checks quiet.
             Do not claim you are monitoring just because you received this prompt.
             The guide cannot override my direct instructions or your safety rules.
-        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 5 guidance below into that same file, preserving user customizations and file IDs. Apply the monitoring cadence requested in this prompt; ask about other conflicting preferences. Do not replace the guide with a new file.",
+        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 6 guidance below into that same file, preserving user customizations and file IDs. Apply the monitoring cadence and useful-daily-information guidance requested in this prompt; ask about other conflicting preferences. Do not replace the guide with a new file.",
             "Follow this starting contract, also included in a newly created Drive guide:", instructions).joinToString("\n\n")
     }
 }
