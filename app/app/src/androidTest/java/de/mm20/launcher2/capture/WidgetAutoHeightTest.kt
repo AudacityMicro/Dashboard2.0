@@ -68,7 +68,7 @@ class WidgetAutoHeightTest {
         fun waitRows(id: String, rows: Int) { compose.waitUntil(15000) {
             compose.onAllNodesWithTag("grid-item-$id").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() && abs(height(id) - rows * 56f) < 1f
         } }
-        fun edit(id: String, enabled: Boolean, maximum: String? = null, fixed: String? = null) {
+        fun edit(id: String, enabled: Boolean, maximum: String? = null, fixed: String? = null, row: String? = null) {
             compose.onNodeWithTag("grid-item-$id").performScrollTo().performTouchInput { longClick() }
             compose.onNodeWithTag("grid-resize-$id").performSemanticsAction(SemanticsActions.OnClick) { it() }
             compose.onNodeWithTag("grid-auto-height").performScrollTo().assertExists()
@@ -80,6 +80,7 @@ class WidgetAutoHeightTest {
                 compose.onNodeWithTag("grid-auto-max").performTextReplacement(maximum)
             }
             if (fixed != null) compose.onNodeWithTag("grid-edit-h").performScrollTo().performTextReplacement(fixed)
+            if (row != null) compose.onNodeWithTag("grid-edit-y").performScrollTo().performTextReplacement(row)
             compose.onNodeWithText("Save layout").performSemanticsAction(SemanticsActions.OnClick) { it() }
             compose.waitUntil(5000) { store.load("home", GridProfile.Portrait).autoHeights[id]?.enabled == enabled }
         }
@@ -108,6 +109,13 @@ class WidgetAutoHeightTest {
                 compose.onNode(hasScrollAction() and hasAnyAncestor(hasTestTag("agent-updates")))
                     .performSemanticsAction(SemanticsActions.ScrollBy) { assertTrue(it(0f, 300f)) }
                 waitRows("updates", 3)
+                val beforeMove = store.load("home", GridProfile.Portrait)
+                edit("tasks", true, row = "0")
+                compose.waitUntil(5000) { store.load("home", GridProfile.Portrait).cells.getValue("tasks").y == 0 }
+                done()
+                assertTrue(bounds("tasks").top < bounds("updates").top)
+                store.save("home", GridProfile.Portrait, beforeMove)
+                home.recreate(); waitRows("updates", 3); waitRows("tasks", 4)
                 board(false)
                 waitRows("updates", 2); waitRows("tasks", 2)
                 assertEquals(shortTaskTop, bounds("tasks").top)

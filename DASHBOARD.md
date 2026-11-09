@@ -103,7 +103,8 @@ Vertical corner resizing while enabled adjusts the automatic maximum.
 Automatic height is off for existing layouts. The toggle and maximum are independent
 for each widget and active portrait/landscape/unfolded layout. Following widgets
 move down or back up as content grows or shrinks, retaining manual gaps and saved
-positions. Calculated display sizes never overwrite those saved positions. If the
+positions. Automatic content changes never overwrite those saved positions; explicit moves or
+resizes anchor the visible arrangement so cards land at the requested position. If the
 512-row canvas cannot accommodate growth, cards keep safe capped viewports and
 scroll their content. External Android widgets retain their provider-defined behavior.
 

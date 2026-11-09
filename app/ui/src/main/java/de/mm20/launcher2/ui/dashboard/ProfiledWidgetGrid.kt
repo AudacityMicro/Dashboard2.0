@@ -121,11 +121,7 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
             // A vertical corner resize changes the automatic maximum; moving preserves it.
             val next = if (automatic != null && cell.height != display.cells[id]?.height)
                 layout.copy(autoHeights = layout.autoHeights + (id to automatic.copy(maxRows = cell.height.coerceIn(1, 32)))) else layout
-            val anchor = layout.cells[id] ?: cell
-            val current = display.cells[id] ?: anchor
-            val desired = cell.copy(y = anchor.y + cell.y - current.y,
-                height = if (automatic != null) anchor.height else cell.height)
-            save(next.place(id, desired), id)
+            save(next.placeDisplayed(id, cell, display), id)
         } catch (failure: Exception) { if (failure is kotlinx.coroutines.CancellationException) throw failure; error = "No space for that size or position." }
     }
     LaunchedEffect(profile, editing) { if (!editing) activeTile = null; selected = null; hiddenDialog = false }
@@ -188,7 +184,6 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
     }
     selected?.let { id -> (display.cells[id] ?: layout.cells[id])?.let { cell ->
         val originalDisplay = remember(id, profile) { cell }
-        val anchor = remember(id, profile) { layout.cells.getValue(id) }
         var x by remember(id, profile) { mutableStateOf(cell.x.toString()) }
         var y by remember(id, profile) { mutableStateOf(cell.y.toString()) }
         var w by remember(id, profile) { mutableStateOf(cell.width.toString()) }
@@ -230,9 +225,10 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
                 try {
                     val next = if (supportsAuto) layout.copy(autoHeights = layout.autoHeights +
                         (id to GridAutoHeight(automatic, maximum.toIntOrNull()?.coerceIn(1, 32) ?: 12))) else layout
-                    val desired = GridCell(values[0]!!, anchor.y + values[1]!! - originalDisplay.y,
-                        values[2]!!, if (supportsAuto && automatic) anchor.height else values[3]!!)
-                    save(if (desired == anchor) next else next.place(id, desired), id)
+                    val desired = GridCell(values[0]!!, values[1]!!, values[2]!!,
+                        if (supportsAuto && automatic) originalDisplay.height else values[3]!!)
+                    val disabling = layout.autoHeights[id]?.enabled == true && !automatic && supportsAuto
+                    save(if (desired == originalDisplay && !disabling) next else next.placeDisplayed(id, desired, display), id)
                     selected = null
                 } catch (failure: Exception) { if (failure is kotlinx.coroutines.CancellationException) throw failure; error = "No space for that size or position." }
             }
