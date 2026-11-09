@@ -15,6 +15,33 @@ read the guide. The prompt asks the agent to agree a checking frequency and conf
 a supported schedule. Copying it does not itself start monitoring. User instructions
 and agent safety rules still take precedence over file contents.
 
+### Starter guide version 2
+
+The starter prompt explicitly authorizes the agent to maintain its own guide in
+place, merge user changes, keep a recoverable prior version and record revisions.
+It asks the agent to connect email and calendar through its own supported connectors
+and authorization flows. These are separate from the launcher's Drive OAuth setup;
+the app does not connect those services or grant mail/calendar permissions.
+
+The agent creates and manages `Dashboard-agent-memory.md` (a concise working summary)
+and `Dashboard-agent-state.json` (file registry, source cursors, processed capture IDs,
+task mappings and action outcomes). It records their exact IDs in the guide. These
+files are agent-owned and are not parsed or created by the launcher. Checkpoints
+precede context compaction and also follow work boundaries. Fresh sessions reload
+the guide, memory, state and phone tasks before resuming. Compaction preserves pending
+commitments, authorization boundaries and deduplication history; larger ledgers use
+indexed archives rather than silently dropping records. External actions require
+reconciliation after an interruption, rather than assuming exactly-once execution.
+
+The version 2 prompt asks an agent receiving an older guide to merge the new guidance
+into that same file while preserving customizations. The phone still never overwrites
+an existing guide. Existing installations must copy the updated setup prompt to their
+agent to apply this change; installing an APK alone does not modify an old Drive guide.
+
+The canonical starter text is `AgentSetup.instructions` in
+`data/dashboard/src/main/java/de/mm20/launcher2/dashboard/AgentSetup.kt`, shared by
+the copied setup prompt and the initial Drive upload.
+
 The guide uses the same durable preallocated-ID/reconciliation mechanism as captures.
 It is included in setup prompts only after remote creation or reconciliation succeeds.
 Upgrading an existing installation creates the additional guide at its next sync;
