@@ -73,7 +73,9 @@ class WidgetGridTest {
                 db.setMeta("grid.config.Landscape", """{"columns":8,"rowDp":80}""")
                 db.setMeta("grid.config.Unfolded", """{"columns":10,"rowDp":96}""")
             }
-            ActivityScenario.launch(LauncherActivity::class.java).use { home ->
+            // Host the isolated Settings dialog in Settings, avoiding the launcher's asynchronous
+            // requestedOrientation effect recreating the Activity after test content is installed.
+            ActivityScenario.launch(de.mm20.launcher2.ui.settings.SettingsActivity::class.java).use { home ->
                 home.onActivity { activity -> activity.setContent { MaterialTheme {
                     CompositionLocalProvider(LocalConfiguration provides config.value) {
                         if (visible.value) WidgetGridSettingsDialog { visible.value = false }
