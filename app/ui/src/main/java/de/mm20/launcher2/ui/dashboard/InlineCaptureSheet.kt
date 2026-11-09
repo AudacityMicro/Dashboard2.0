@@ -40,8 +40,23 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
         }
         permissionPending = false
     }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) model.importImage(uri)
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) model.importFile(uri)
+    }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture(), model::cameraResult)
+    LaunchedEffect(model.launchExternal) {
+        if (model.launchExternal) {
+            model.externalLaunched()
+            try {
+                if (model.mode == InlineCaptureMode.Image) camera.launch(model.cameraUri())
+                else filePicker.launch(arrayOf("*/*"))
+            } catch (_: Exception) { model.externalFailed() }
+        }
+    }
+    LaunchedEffect(model.saved, model.transcription) {
+        if (model.saved && model.transcription == "pending") {
+            while (model.transcription == "pending") { model.refreshTranscript(); delay(1000) }
+        }
     }
     DisposableEffect(lifecycle, model) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) model.backgrounded() }
@@ -63,12 +78,22 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
             Text(when (mode) {
                 InlineCaptureMode.Text -> "Text note"
                 InlineCaptureMode.Voice -> "Voice note"
-                else -> "Add image"
+                InlineCaptureMode.Image -> "Photo"
+                else -> "Upload file"
             }, style = MaterialTheme.typography.headlineSmall)
             Text(if (model.saved) "Saved on this phone. Drive will sync when connected."
                 else "Saved on this phone first. No internet needed.", style = MaterialTheme.typography.bodyMedium)
             if (model.saved) {
                 Text("Saved offline", style = MaterialTheme.typography.titleLarge, modifier = Modifier.testTag("inline-capture-saved"))
+                if (mode == InlineCaptureMode.Voice) {
+                    Text("Automatic transcript · English", style = MaterialTheme.typography.titleMedium)
+                    Text(when (model.transcription) {
+                        "ready" -> model.transcript
+                        "no_speech" -> "No speech detected. Your audio is saved."
+                        "failed" -> "Couldn't transcribe this recording. Your audio is saved."
+                        else -> "Transcribing on this phone… You can close this; it continues offline."
+                    }, modifier = Modifier.testTag("inline-voice-transcript"))
+                }
                 Button(onClick = { keyboard?.hide(); model.close() }, modifier = Modifier.fillMaxWidth()) { Text("Done") }
             } else {
                 when (mode) {
@@ -93,7 +118,7 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
                         Text("%02d:%02d".format(elapsed / 60, elapsed % 60), style = MaterialTheme.typography.displayMedium,
                             modifier = Modifier.testTag("inline-voice-timer"))
                         Text(if (model.recording) "Recording. Saves when you leave Home."
-                            else "Tap to record. Up to 10 minutes or 25 MiB.")
+                            else "Tap to record. Up to 10 minutes. English transcription runs automatically on this phone after saving.")
                         Button(onClick = {
                             if (model.recording) model.stopAndSave()
                             else if (model.pendingVoice) model.saveVoice()
@@ -103,8 +128,8 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
                             Text(if (model.recording) "Stop and save" else if (model.pendingVoice) "Retry save" else "Start recording")
                         }
                     }
-                    InlineCaptureMode.Image -> Button(onClick = { imagePicker.launch("image/*") }, enabled = !model.busy,
-                        modifier = Modifier.fillMaxWidth()) { Text("Choose image") }
+                    InlineCaptureMode.Image, InlineCaptureMode.File -> Button(onClick = model::requestExternal, enabled = !model.busy,
+                        modifier = Modifier.fillMaxWidth()) { Text(if (mode == InlineCaptureMode.Image) "Open camera" else "Choose image or file") }
                     else -> Unit
                 }
                 if (model.busy) LinearProgressIndicator(Modifier.fillMaxWidth())

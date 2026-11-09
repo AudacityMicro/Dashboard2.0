@@ -187,7 +187,7 @@ open class CaptureActivity : Activity() {
             val mime = contentResolver.getType(uri).orEmpty()
             require(mime.matches(Regex("(image|audio)/[A-Za-z0-9.+-]+"))) { "Unsupported image or audio type" }
             val stream = requireNotNull(contentResolver.openInputStream(uri)) { "Cannot open capture" }
-            InboxStore(this).use { it.save(if (mime.startsWith("image/")) "image" else "voice", mime, source = stream) }
+            InboxStore(this).use { it.save(if (mime.startsWith("image/")) "image" else "voice", mime, source = stream, transcribe = mime.startsWith("audio/")) }
         }) { saved() }
     }
     @Suppress("DEPRECATION") private fun startRecording() {
@@ -197,6 +197,7 @@ open class CaptureActivity : Activity() {
             active.setAudioSource(MediaRecorder.AudioSource.MIC)
             active.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             active.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            active.setAudioSamplingRate(16000); active.setAudioChannels(1); active.setAudioEncodingBitRate(64000)
             active.setOutputFile(file.path); active.setMaxFileSize(25L * 1024 * 1024); active.setMaxDuration(600000)
             active.setOnInfoListener { _, _, _ -> if (recorder != null) stopRecording() }
             active.prepare(); active.start(); recordButton.text = "Stop and save voice note"
@@ -212,7 +213,7 @@ open class CaptureActivity : Activity() {
         try {
             active.stop()
             background({
-                InboxStore(this).use { it.save("voice", "audio/mp4", source = file.inputStream()) }
+                InboxStore(this).use { it.save("voice", "audio/mp4", source = file.inputStream(), transcribe = true) }
                 file.delete() // Retain the completed recording if inbox commit fails.
             }) { saved() }
         } catch (_: Exception) { file.delete(); message("Recording was too short to save") }
@@ -245,7 +246,7 @@ open class CaptureActivity : Activity() {
             if (captures.isEmpty()) rows.addView(TextView(this).apply { text = "Your saved captures appear here." })
             captures.forEach { capture ->
                 rows.addView(Button(this).apply {
-                    text = "${capture.kind} • ${capture.state}\n${capture.text.take(100).ifEmpty { java.time.Instant.ofEpochMilli(capture.created).toString() }}"
+                    text = "${capture.kind} • ${capture.state}${if (capture.kind == "voice") " • transcript: ${capture.transcription}" else ""}\n${capture.text.take(100).ifEmpty { capture.name.ifEmpty { java.time.Instant.ofEpochMilli(capture.created).toString() } }}"
                     setOnClickListener { preview(capture) }
                 })
             }
@@ -254,6 +255,12 @@ open class CaptureActivity : Activity() {
     private fun preview(capture: Capture) {
         if (capture.kind == "text") AlertDialog.Builder(this).setMessage(capture.text).setPositiveButton("Close", null).show()
         else if (capture.kind == "voice") {
+            AlertDialog.Builder(this).setTitle("Automatic transcript · English")
+                .setMessage(capture.text.ifEmpty { when (capture.transcription) {
+                    "pending" -> "Transcribing on this phone… Close and reopen to refresh."
+                    "no_speech" -> "No speech detected. Your audio is saved."
+                    else -> "Transcript unavailable. Your audio is saved."
+                } }).setPositiveButton("Close", null).show()
             try {
                 player?.release(); player = MediaPlayer().apply {
                     setDataSource(InboxStore(this@CaptureActivity).use { it.file(capture.id).path })
@@ -261,6 +268,10 @@ open class CaptureActivity : Activity() {
                 }
                 message("Playing voice note")
             } catch (_: Exception) { player?.release(); player = null; message("Could not play audio") }
+        } else if (capture.kind == "file") {
+            AlertDialog.Builder(this).setTitle(capture.name.ifEmpty { "File" })
+                .setMessage("Saved offline · ${capture.mime}\nUploads to Drive when connected.")
+                .setPositiveButton("Close", null).show()
         } else background({
             val path = InboxStore(this).use { it.file(capture.id).path }
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }

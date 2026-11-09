@@ -95,10 +95,10 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Quick capture", style = MaterialTheme.typography.titleLarge)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("text" to "Text note", "voice" to "Voice note", "image" to "Add image").forEach { (mode, label) ->
+                    listOf("text" to "Text", "voice" to "Voice", "image" to "Photo", "file" to "Upload").forEach { (mode, label) ->
                         FilledTonalButton(modifier = Modifier.weight(1f).testTag("capture-$mode"),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp), onClick = {
-                                capture.open(when (mode) { "text" -> InlineCaptureMode.Text; "voice" -> InlineCaptureMode.Voice; else -> InlineCaptureMode.Image })
+                                capture.open(when (mode) { "text" -> InlineCaptureMode.Text; "voice" -> InlineCaptureMode.Voice; "image" -> InlineCaptureMode.Image; else -> InlineCaptureMode.File })
                             }) { Text(label) }
                     }
                 }

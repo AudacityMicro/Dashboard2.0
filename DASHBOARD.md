@@ -11,7 +11,7 @@ from the home content, leaving the Android status bar indicators.
 
 Install the default debug APK, choose Dashboard as your Home app, then search for
 **Dashboard Inbox**. You can also long-press Dashboard's icon and pin **Capture inbox**.
-Save text, record voice, or select an image/audio document. Other apps can share
+Save text, record voice, take a photo, or upload an image/file. Other apps can share
 text, images or audio into Dashboard Inbox; shared text remains a draft until saved.
 Tap an inbox entry to read, preview or play it. Recording stops and saves when the
 activity leaves the foreground; there is no background microphone service.
@@ -59,6 +59,48 @@ least-privilege `drive.file` scope. Each capture produces:
 - `Dashboard-<uuid>.txt`, `.audio`, or `.image`: original bytes and correct MIME type.
 - `Dashboard-<uuid>.json`: UTF-8 record with `schemaVersion`, `id`, `createdAt` (UTC),
   `kind`, `mimeType`, `text`, `driveFileId`, and `source`.
+
+### Home capture tools
+
+The four Home buttons are **Text**, **Voice**, **Photo** and **Upload**. Text and
+voice remain in the launcher's themed sheet. Photo immediately opens the installed
+camera through Android's full-resolution `TakePicture` contract; cancel creates no
+inbox entry. The temporary camera URI uses the existing nonexported FileProvider.
+Android's camera app is needed for taking photos. Upload immediately opens Android's
+document picker for images or any file type. The app copies the selection into its
+private inbox (25 MiB maximum), retains a sanitized display name/MIME type and does
+not keep access to the provider URI or execute documents. Providers may themselves
+need a connection to download cloud-only files before import.
+
+Voice recording uses mono 16 kHz AAC. Saving commits the original audio before
+automatic English transcription starts. Vosk decodes that saved file locally in
+WorkManager, with no network constraint, Google sign-in or microphone access during
+transcription. Pending transcription survives app/process restart; startup and the
+15-minute recovery job reschedule it. Work is serialized, and appended requests
+prevent captures added during a running job from being missed. WorkManager/Android
+can defer processing; force-stopped apps resume after reopening.
+
+The saved sheet displays the transcript when ready; reopen the voice item in Inbox
+to read it later and play the audio. Speech recognition is approximate and English
+only in this increment. Silence/unsupported audio/recognition failure is explicit,
+and the audio remains intact. Failed transcription permits raw-audio synchronization
+so the agent can use its own transcription tools. Abruptly killing the app before
+recording is stopped can still leave an uncommitted staging recording.
+
+Database version 2 preserves existing captures and adds `transcription` and `name`.
+Older voice notes are left intact and are not automatically retranscribed. New
+voice manifests wait for transcription to finish and include `transcriptionStatus`
+and the transcript in `text`; generic uploads use `kind: file` and `originalName`.
+The existing manifest schema stays version 1 with additive optional fields. The
+original payload is always uploaded before its manifest. Starter guide version 4
+explains these fields, uncertainty and safe document handling. Existing Drive guides
+remain user-owned; copy the new setup prompt to the agent to merge the guidance.
+
+The standard build commands below also fetch and bundle the pinned English model.
+See [speech notices and build requirements](SPEECH_NOTICES.md) for size, licenses,
+checksum and first-run storage requirements. Tests cover database migration, a real
+offline speech sample, actual recorder decoding, immediate camera/document launches,
+camera cancellation, full-resolution photo import and durable PDF import.
 
 Example manifest:
 
@@ -226,7 +268,7 @@ guide is created once and preserves your edits. The prompt tells your agent to r
 that guide before each run and check for changes. Agree a monitoring schedule with
 your agent; the launcher cannot schedule another agent itself.
 
-Starter guide version 3 allows agents to maintain that guide, checkpoint durable
+Starter guide version 4 allows agents to maintain that guide, checkpoint durable
 memory before context compaction, and connect email/calendar through their own tools.
 These are instructions for the agent, not additional launcher integrations. For an
 existing Drive guide, copy the updated prompt to your agent so it can merge the new
