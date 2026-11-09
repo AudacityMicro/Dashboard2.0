@@ -92,7 +92,7 @@ Older voice notes are left intact and are not automatically retranscribed. New
 voice manifests wait for transcription to finish and include `transcriptionStatus`
 and the transcript in `text`; generic uploads use `kind: file` and `originalName`.
 The existing manifest schema stays version 1 with additive optional fields. The
-original payload is always uploaded before its manifest. Starter guide version 4
+original payload is always uploaded before its manifest. Starter guide version 5
 explains these fields, uncertainty and safe document handling. Existing Drive guides
 remain user-owned; copy the new setup prompt to the agent to merge the guidance.
 
@@ -265,10 +265,15 @@ Drive and let it sync, then copy the prompt to include the exact board, phone-st
 and `Dashboard-agent-instructions.md` file IDs. Before connection the button still
 copies useful setup instructions and asks for a fresh copy after sync. The Drive
 guide is created once and preserves your edits. The prompt tells your agent to read
-that guide before each run and check for changes. Agree a monitoring schedule with
-your agent; the launcher cannot schedule another agent itself.
+that guide before each run and check for changes. It requests checks every 15 minutes
+from 08:00–22:00 and every two hours overnight (22:00, 00:00, 02:00, 04:00, 06:00)
+in the user's local timezone, using the phone's IANA timezone if no established
+preference exists. The agent verifies its own scheduler, reuses existing schedules,
+handles daylight-saving changes and keeps unchanged checks quiet. The launcher
+cannot schedule another agent itself; unsupported agents must explain that and
+check on demand. The user can change the default hours and timezone.
 
-Starter guide version 4 allows agents to maintain that guide, checkpoint durable
+Starter guide version 5 allows agents to maintain that guide, checkpoint durable
 memory before context compaction, and connect email/calendar through their own tools.
 These are instructions for the agent, not additional launcher integrations. For an
 existing Drive guide, copy the updated prompt to your agent so it can merge the new

@@ -11,11 +11,14 @@ Sync creates `Dashboard-agent-instructions.md` once alongside the two JSON files
 The phone preserves later edits to that guide. Edit its contents in Drive to customize
 your agent's guidance; preserve the file itself and its ID. The agent should read it
 at setup and before each processing run, detect changes, and defer writes if it cannot
-read the guide. The prompt asks the agent to agree a checking frequency and configure
-a supported schedule. Copying it does not itself start monitoring. User instructions
+read the guide. The prompt requests checks every 15 minutes from 08:00–22:00 and
+every two hours overnight (22:00, 00:00, 02:00, 04:00, 06:00), in the user's local
+timezone. It includes the phone's IANA timezone as a fallback and asks the agent to
+verify its own scheduler, update existing schedules and keep unchanged checks quiet.
+Copying it does not itself start monitoring. User instructions
 and agent safety rules still take precedence over file contents.
 
-### Starter guide version 4
+### Starter guide version 5
 
 The starter prompt explicitly authorizes the agent to maintain its own guide in
 place, merge user changes, keep a recoverable prior version and record revisions.
@@ -33,7 +36,7 @@ commitments, authorization boundaries and deduplication history; larger ledgers 
 indexed archives rather than silently dropping records. External actions require
 reconciliation after an interruption, rather than assuming exactly-once execution.
 
-The version 4 prompt asks an agent receiving an older guide to merge the new guidance
+The version 5 prompt asks an agent receiving an older guide to merge the new guidance
 into that same file while preserving customizations. The phone still never overwrites
 an existing guide. Existing installations must copy the updated setup prompt to their
 agent to apply this change; installing an APK alone does not modify an old Drive guide.
@@ -44,7 +47,7 @@ the copied setup prompt and the initial Drive upload.
 
 ### Digest and archive provided notes
 
-The version 4 guide authorizes the agent to manage Dashboard captures and other files
+The version 5 guide authorizes the agent to manage Dashboard captures and other files
 the user explicitly provides for this workflow. It reads/interprets the original,
 merges useful information into `Dashboard-agent-memory.md` (the context document),
 and verifies context/state/task writes before moving originals. Unsupported or

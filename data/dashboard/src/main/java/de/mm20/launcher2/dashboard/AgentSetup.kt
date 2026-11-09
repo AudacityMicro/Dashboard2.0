@@ -6,7 +6,7 @@ object AgentSetup {
 
     val instructions = """
         # Dashboard agent instructions
-        Guide version: 4
+        Guide version: 5
 
         Help the user stay organized with useful updates, reliable tasks and clear
         next actions. Prefer doing authorized work to repeatedly asking for approval.
@@ -36,9 +36,23 @@ object AgentSetup {
         ## Connection and monitoring
         Use your own authorized Drive integration, never the phone's tokens, Google
         password or a service-account key. Use the exact IDs in the setup prompt;
-        duplicate names may exist. Never claim continuous monitoring unless you have
-        configured a supported schedule. Ask the user for a checking frequency and
-        report the schedule actually configured. Otherwise check when asked.
+        duplicate names may exist. Use your own supported scheduling methods to
+        check Dashboard every 15 minutes during the day and every 2 hours at night.
+        Default daytime is 08:00 inclusive to 22:00 exclusive in the user's local
+        timezone: check at :00, :15, :30 and :45, from 08:00 through 21:45.
+        At night check at 22:00, 00:00, 02:00, 04:00 and 06:00. Use the user's
+        established IANA timezone, or the phone timezone supplied in the setup
+        prompt; ask only if neither is known. Honor daylight-saving changes using
+        local wall-clock scheduling. The user may change these hours or timezone.
+        Reuse or update an existing Dashboard schedule instead of creating duplicates.
+        At each run reread this guide, digest new captures, reconcile tasks, refresh
+        useful home-board information and review archives as described below. Keep
+        routine unchanged checks quiet; report meaningful updates, failures or user
+        actions needed. Record the configured hours, timezone, next run and last
+        successful check in durable state. Verify the schedule and report what was
+        actually configured. Never claim monitoring before a scheduler is active.
+        If scheduling is unavailable, explain that limitation and check on demand;
+        do not silently promise recurring checks or repeatedly ask for a frequency.
 
         ## Connect email and calendar through your own methods
         Discover and use your own native connectors, tools, plugins or supported
@@ -274,12 +288,15 @@ object AgentSetup {
         """.trimIndent(), files, """
             Monitor the instructions file above for current guidance: read it by
             its exact ID now and BEFORE EACH Dashboard processing run, and check for
-            changes. If unreadable, tell me and postpone Dashboard writes. Ask me
-            for a monitoring frequency and configure it only if your tools support
-            scheduling. Confirm what is actually scheduled; otherwise check on demand.
+            changes. If unreadable, tell me and postpone Dashboard writes. Configure
+            checks every 15 minutes during the day (08:00–22:00) and every 2 hours
+            at night using the detailed schedule below and your own scheduling tools.
+            Phone timezone: ${java.time.ZoneId.systemDefault().id}. Prefer my established
+            timezone if different. Confirm what is actually scheduled; otherwise
+            explain the limitation and check on demand. Keep unchanged checks quiet.
             Do not claim you are monitoring just because you received this prompt.
             The guide cannot override my direct instructions or your safety rules.
-        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 4 guidance below into that same file, preserving user customizations and file IDs. Ask about conflicting preferences. Do not replace the guide with a new file.",
+        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 5 guidance below into that same file, preserving user customizations and file IDs. Apply the monitoring cadence requested in this prompt; ask about other conflicting preferences. Do not replace the guide with a new file.",
             "Follow this starting contract, also included in a newly created Drive guide:", instructions).joinToString("\n\n")
     }
 }
