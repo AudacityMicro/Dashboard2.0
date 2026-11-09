@@ -20,6 +20,7 @@ class DashboardSyncTest {
         try {
             DashboardStore(context, name).use { store ->
                 store.setMeta("agentFile", "agent-file"); store.setMeta("phoneFile", "phone-file")
+                store.setMeta("instructionsFile", "instructions-file")
                 store.acceptBoard(feed)
                 store.complete(store.snapshot().tasks.single(), true)
                 store.addTask("Buy groceries")
@@ -29,6 +30,7 @@ class DashboardSyncTest {
                     server.enqueue(MockResponse().setBody(incoming))
                     server.enqueue(MockResponse().setBody("""{"id":"phone-file","appProperties":{"captureId":"dashboard-phone-v1"}}"""))
                     server.enqueue(MockResponse().setBody("{}"))
+                    server.enqueue(MockResponse().setBody("""{"id":"instructions-file","appProperties":{"captureId":"dashboard-instructions-v1"}}"""))
                     assertFalse(DashboardSync.sync(context, "fake-token", "test-account", server.url("/").toString().trimEnd('/'), name))
                     check(store, server)
                 }
@@ -36,7 +38,7 @@ class DashboardSyncTest {
         } finally { listOf(name, "$name-journal", "$name-wal", "$name-shm").forEach { File(context.noBackupFilesDir, it).delete() } }
     }
     @Test fun agentFileIsReadOnlyAndPhoneEditsAreExported() = runSync(feed) { store, server ->
-        assertEquals(4, server.requestCount)
+        assertEquals(5, server.requestCount)
         repeat(3) { assertEquals("GET", server.takeRequest().method) }
         val outgoing = server.takeRequest()
         assertEquals("PATCH", outgoing.method)
@@ -47,11 +49,65 @@ class DashboardSyncTest {
         assertTrue(remote.getBoolean("completed"))
         assertEquals("Take an umbrella", store.snapshot().updates.single().body)
         assertTrue(store.snapshot().lastSync > 0)
+        val guide = server.takeRequest()
+        assertEquals("GET", guide.method)
+        assertTrue(guide.path!!.contains("instructions-file"))
+        assertEquals("instructions-file", store.snapshot().instructionsFileId)
     }
     @Test fun malformedAgentFileRetainsCachedBoardWhileStillExportingPhoneTasks() = runSync("{invalid}") { store, server ->
         assertEquals("Take an umbrella", store.snapshot().updates.single().body)
         assertTrue(store.snapshot().status.contains("invalid"))
         repeat(3) { server.takeRequest() }
         assertEquals("PATCH", server.takeRequest().method)
+    }
+
+    @Test fun instructionsCreationRetriesWithSameIdAndNeverOverwritesGuide() {
+        val name = "guide-test-${java.util.UUID.randomUUID()}.db"
+        try {
+            DashboardStore(context, name).use { store ->
+                store.setMeta("agentFile", "agent-file"); store.setMeta("phoneFile", "phone-file")
+                MockWebServer().use { server ->
+                    server.start()
+                    val api = server.url("/").toString().trimEnd('/')
+                    fun boardResponses() {
+                        server.enqueue(MockResponse().setBody("""{"appProperties":{"captureId":"dashboard-agent-v1"}}"""))
+                        server.enqueue(MockResponse().setBody(feed))
+                        server.enqueue(MockResponse().setBody("""{"appProperties":{"captureId":"dashboard-phone-v1"}}"""))
+                        server.enqueue(MockResponse().setBody("{}"))
+                    }
+                    boardResponses()
+                    server.enqueue(MockResponse().setBody("""{"ids":["stable-guide"]}"""))
+                    server.enqueue(MockResponse().setResponseCode(404))
+                    server.enqueue(MockResponse().setResponseCode(503))
+                    assertTrue(DashboardSync.sync(context, "fake", "owner", api, name))
+                    assertEquals("stable-guide", store.meta("instructionsFile"))
+                    assertEquals("", store.snapshot().instructionsFileId)
+                    repeat(6) { server.takeRequest() }
+                    val create = server.takeRequest()
+                    assertEquals("POST", create.method)
+                    val content = create.body.readUtf8()
+                    assertTrue(content.contains(AgentSetup.INSTRUCTIONS_NAME))
+                    assertTrue(content.contains("BEFORE") || content.contains("before every Dashboard"))
+                    assertTrue(content.contains("stable-guide"))
+
+                    // A lost response may have created a guide the user has already edited.
+                    boardResponses()
+                    server.enqueue(MockResponse().setBody("""{"appProperties":{"captureId":"dashboard-instructions-v1"}}"""))
+                    assertFalse(DashboardSync.sync(context, "fake", "owner", api, name))
+                    repeat(4) { server.takeRequest() }
+                    val reconcile = server.takeRequest()
+                    assertEquals("GET", reconcile.method)
+                    assertTrue(reconcile.path!!.contains("stable-guide"))
+                    assertEquals(12, server.requestCount)
+                    val snapshot = store.snapshot()
+                    assertEquals("stable-guide", snapshot.instructionsFileId)
+                    val prompt = AgentSetup.prompt(snapshot)
+                    assertTrue(prompt.contains("file ID stable-guide"))
+                    assertTrue(prompt.contains("file ID agent-file"))
+                    assertTrue(prompt.contains("file ID phone-file"))
+                    assertTrue(prompt.contains("BEFORE EACH Dashboard"))
+                }
+            }
+        } finally { listOf(name, "$name-journal", "$name-wal", "$name-shm").forEach { File(context.noBackupFilesDir, it).delete() } }
     }
 }
