@@ -94,7 +94,7 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
             layout = next
         }
     }
-    fun save(next: WidgetGridLayout, activated: String? = null) {
+    fun save(next: WidgetGridLayout, activated: String? = null, onSaved: () -> Unit = {}) {
         if (busy || !loaded) return
         busy = true
         scope.launch {
@@ -102,8 +102,18 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
                 withContext(Dispatchers.IO) { WidgetGridStore(context).save(parent, profile, next) }
                 layout = next; error = ""
                 activated?.let(onPlaced)
+                onSaved()
             } catch (failure: Exception) { if (failure is kotlinx.coroutines.CancellationException) throw failure; error = "Couldn't save the layout. Try again." }
             finally { busy = false }
+        }
+    }
+    fun delete(tile: GridTile) {
+        if (busy || !loaded) return
+        selected = null
+        val remove = tile.onRemove
+        if (remove != null) remove()
+        else save(layout.copy(hidden = layout.hidden + tile.id)) {
+            if (activeTile == tile.id) activeTile = null
         }
     }
     val density = LocalDensity.current
@@ -137,6 +147,16 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
                     TextButton(onClick = { hiddenDialog = true }, enabled = !busy) { Text("Widgets") }
                     TextButton(onClick = { activeTile = null; onDone() }, enabled = !busy) { Text("Done") }
                 }
+                tiles.firstOrNull { it.id == activeTile }?.let { tile ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(tile.label, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                        TextButton(onClick = { delete(tile) }, enabled = !busy,
+                            modifier = Modifier.testTag("grid-delete-selected-${tile.id}"),
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                            Text("Delete widget")
+                        }
+                    }
+                }
             }
             }
         }
@@ -154,7 +174,8 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
                         GridWidgetFrame(tile.id, cell, stepX, stepY, direction, grid.columns,
                             selected = editing && activeTile == tile.id, editing = editing, enabled = !busy,
                             onSelect = { activeTile = tile.id; GridEditing.target = parent },
-                            onPlace = { place(tile.id, it) }, onExactSize = { selected = tile.id }) {
+                            onPlace = { place(tile.id, it) }, onExactSize = { selected = tile.id },
+                            onDelete = { delete(tile) }) {
                             CompositionLocalProvider(LocalAppGridWidth provides maxWidth,
                                 LocalGridContentHeight provides if (tile.supportsAutoHeight && layout.autoHeights[tile.id]?.enabled == true) ({ pixels: Int ->
                                     if (contentPixels[tile.id] != pixels) contentPixels = contentPixels + (tile.id to pixels)
