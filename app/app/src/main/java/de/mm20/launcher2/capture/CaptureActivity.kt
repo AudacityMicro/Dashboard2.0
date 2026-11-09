@@ -186,13 +186,17 @@ open class CaptureActivity : Activity() {
             require(uri.scheme == "content") { "Choose a document from the system picker" }
             val mime = contentResolver.getType(uri).orEmpty()
             require(mime.matches(Regex("(image|audio)/[A-Za-z0-9.+-]+"))) { "Unsupported image or audio type" }
+            val selectedMode = VoiceRecordingSettings.get(this)
             val stream = requireNotNull(contentResolver.openInputStream(uri)) { "Cannot open capture" }
-            InboxStore(this).use { it.save(if (mime.startsWith("image/")) "image" else "voice", mime, source = stream, transcribe = mime.startsWith("audio/")) }
+            InboxStore(this).use { if (mime.startsWith("audio/")) it.saveVoice(mime, stream, selectedMode)
+                else it.save("image", mime, source = stream) }
         }) { saved() }
     }
+    private var voiceMode = VoiceRecordingMode.Both
     @Suppress("DEPRECATION") private fun startRecording() {
         try {
             val file = File(noBackupFilesDir, "recording-${java.util.UUID.randomUUID()}.m4a")
+            voiceMode = VoiceRecordingSettings.get(this)
             val active = MediaRecorder(); recorder = active; recording = file
             active.setAudioSource(MediaRecorder.AudioSource.MIC)
             active.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -209,11 +213,12 @@ open class CaptureActivity : Activity() {
     private fun stopRecording() {
         val active = recorder ?: return
         val file = recording ?: return
+        val selectedMode = voiceMode
         recorder = null; recording = null; recordButton.text = "Record voice note"
         try {
             active.stop()
             background({
-                InboxStore(this).use { it.save("voice", "audio/mp4", source = file.inputStream(), transcribe = true) }
+                InboxStore(this).use { it.saveVoice("audio/mp4", file.inputStream(), selectedMode) }
                 file.delete() // Retain the completed recording if inbox commit fails.
             }) { saved() }
         } catch (_: Exception) { file.delete(); message("Recording was too short to save") }

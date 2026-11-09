@@ -14,12 +14,15 @@ class TranscriptionWorker(context: Context, params: WorkerParameters) : Worker(c
                     val text = OfflineTranscriber.transcribe(applicationContext, store.file(capture.id)) { isStopped }
                     if (isStopped) return Result.retry()
                     store.update(capture.id, "text" to text, "transcription" to if (text.isBlank()) "no_speech" else "ready")
+                    if (text.isBlank() && capture.voiceMode == "transcript") store.update(capture.id, "state" to "failed")
                 } catch (_: java.util.concurrent.CancellationException) { return Result.retry()
                 } catch (_: Exception) {
                     // The audio is still available, including when the format/language is unsupported.
                     store.update(capture.id, "transcription" to "failed")
+                    if (capture.voiceMode == "transcript") store.update(capture.id, "state" to "failed")
                 } catch (_: LinkageError) {
                     store.update(capture.id, "transcription" to "failed")
+                    if (capture.voiceMode == "transcript") store.update(capture.id, "state" to "failed")
                 }
             }
         }

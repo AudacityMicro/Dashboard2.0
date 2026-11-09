@@ -10,11 +10,21 @@ Install the APK on your Android phone and select **Dashboard** as your Home app.
 This is a preview build: local captures and tasks work offline; Google Drive sync
 requires the one-time OAuth setup described in the setup guide.
 
-A Kvaesitso-based Android launcher with offline text, automatic English voice transcripts,
+A Kvaesitso-based Android launcher with offline text, optional offline English voice transcripts,
 camera capture and image/file uploads
 and queued Google Drive synchronization. Its main tab includes agent updates and an
 offline to-do list backed by separate agent/phone Drive files. See [DASHBOARD.md](DASHBOARD.md) for setup,
 OAuth registration, data format, build/test commands and current limits.
+
+### Voice recording options
+
+Open **Settings → Voice recordings**:
+
+- **Transcript only:** recognize English on the phone and upload a `.txt` transcript plus capture metadata. Original audio stays on the phone. Failed/no-speech conversion never uploads audio; use Retry in Capture inbox.
+- **Audio only:** skip transcription and upload the original recording bytes plus metadata, with no transcript text.
+- **Audio and transcript** (default): upload the original recording and, when recognition succeeds, a separate `.txt` transcript plus metadata.
+
+All options save the original recording locally first and work offline. The choice is saved per recording when recording starts (or audio is imported); changing Settings applies to future recordings. Upload retries keep stable file IDs. Existing queued captures retain the prior audio-and-transcript behavior. Local recordings remain in app-private storage and are excluded from Android backup. These settings do not connect or share Google accounts.
 
 The source below is the original upstream project documentation. Dashboard retains
 Kvaesitso's GPL-3.0 license and attribution; it is an independent customization.

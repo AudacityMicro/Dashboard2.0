@@ -11,30 +11,37 @@ import java.util.UUID
 
 data class Capture(val id: String, val kind: String, val mime: String, val created: Long,
     val text: String, val state: String, val remote: String, val manifest: String, val owner: String,
-    val transcription: String = "none", val name: String = "") {
-    val readyForSync: Boolean get() = state == "pending" && transcription != "pending"
+    val transcription: String = "none", val name: String = "",
+    val voiceMode: String = "both", val transcriptRemote: String = "") {
+    val readyForSync: Boolean get() = state == "pending" && transcription != "pending" &&
+        (kind != "voice" || voiceMode != "transcript" || (transcription == "ready" && text.isNotBlank()))
 }
 
 /** Both database and payloads are excluded from Android/cloud backup. No external URIs survive import. */
 class InboxStore(private val context: Context) : SQLiteOpenHelper(context,
-    File(context.noBackupFilesDir, "capture/inbox.db").also { it.parentFile!!.mkdirs() }.path, null, 2) {
+    File(context.noBackupFilesDir, "capture/inbox.db").also { it.parentFile!!.mkdirs() }.path, null, 3) {
     private val root = File(context.noBackupFilesDir, "capture").also { it.mkdirs() }
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""CREATE TABLE captures(id TEXT PRIMARY KEY, kind TEXT NOT NULL,
             mime TEXT NOT NULL, created INTEGER NOT NULL, text TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'pending', remote TEXT NOT NULL DEFAULT '',
             manifest TEXT NOT NULL DEFAULT '', owner TEXT NOT NULL DEFAULT '',
-            transcription TEXT NOT NULL DEFAULT 'none', name TEXT NOT NULL DEFAULT '')""")
+            transcription TEXT NOT NULL DEFAULT 'none', name TEXT NOT NULL DEFAULT '',
+            voice_mode TEXT NOT NULL DEFAULT 'both', transcript_remote TEXT NOT NULL DEFAULT '')""")
     }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE captures ADD COLUMN transcription TEXT NOT NULL DEFAULT 'none'")
             db.execSQL("ALTER TABLE captures ADD COLUMN name TEXT NOT NULL DEFAULT ''")
         }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE captures ADD COLUMN voice_mode TEXT NOT NULL DEFAULT 'both'")
+            db.execSQL("ALTER TABLE captures ADD COLUMN transcript_remote TEXT NOT NULL DEFAULT ''")
+        }
     }
     fun file(id: String) = File(root, "$id.payload")
     fun save(kind: String, mime: String, text: String = "", source: java.io.InputStream? = null,
-        transcribe: Boolean = false, name: String = ""): String {
+        transcribe: Boolean = false, name: String = "", voiceMode: VoiceRecordingMode = VoiceRecordingMode.Both): String {
         require(kind in listOf("text", "voice", "image", "file"))
         require(!transcribe || kind == "voice")
         require(kind != "text" || text.isNotBlank())
@@ -58,7 +65,8 @@ class InboxStore(private val context: Context) : SQLiteOpenHelper(context,
             writableDatabase.insertOrThrow("captures", null, ContentValues().apply {
                 put("id", id); put("kind", kind); put("mime", mime)
                 put("created", System.currentTimeMillis()); put("text", text)
-                put("transcription", if (transcribe) "pending" else "none")
+                put("transcription", if (transcribe && voiceMode.transcribe) "pending" else "none")
+                put("voice_mode", voiceMode.id)
                 put("name", name.substringAfterLast('/').substringAfterLast('\\').filter { !it.isISOControl() }.take(180))
             })
         } catch (e: Exception) { temp.delete(); file(id).delete(); throw e }
@@ -70,17 +78,29 @@ class InboxStore(private val context: Context) : SQLiteOpenHelper(context,
         buildList { while (c.moveToNext()) {
             fun s(name: String) = c.getString(c.getColumnIndexOrThrow(name))
             add(Capture(s("id"), s("kind"), s("mime"), c.getLong(c.getColumnIndexOrThrow("created")),
-                s("text"), s("state"), s("remote"), s("manifest"), s("owner"), s("transcription"), s("name")))
+                s("text"), s("state"), s("remote"), s("manifest"), s("owner"), s("transcription"), s("name"), s("voice_mode"), s("transcript_remote")))
         } }
     }
     fun update(id: String, vararg fields: Pair<String, String>) {
         writableDatabase.update("captures", ContentValues().apply { fields.forEach { put(it.first, it.second) } }, "id=?", arrayOf(id))
     }
-    fun retry() { writableDatabase.execSQL("UPDATE captures SET state='pending' WHERE state IN ('auth_required','failed')") }
+    fun saveVoice(mime: String, source: java.io.InputStream, mode: VoiceRecordingMode, name: String = "") =
+        save("voice", mime, source = source, transcribe = mode.transcribe, name = name, voiceMode = mode)
+    fun retry() {
+        writableDatabase.execSQL("UPDATE captures SET transcription='pending' WHERE kind='voice' AND voice_mode='transcript' AND transcription IN ('failed','no_speech') AND state IN ('pending','auth_required','failed')")
+        writableDatabase.execSQL("UPDATE captures SET state='pending' WHERE state IN ('auth_required','failed')")
+    }
     fun manifest(c: Capture): ByteArray = JSONObject().apply {
         put("schemaVersion", 1); put("id", c.id); put("kind", c.kind)
         put("createdAt", java.time.Instant.ofEpochMilli(c.created).toString())
-        put("mimeType", c.mime); put("text", c.text); put("driveFileId", c.remote)
+        val transcriptOnly = c.kind == "voice" && c.voiceMode == "transcript"
+        put("mimeType", if (transcriptOnly) "text/plain" else c.mime)
+        put("text", if (c.kind == "voice" && c.voiceMode == "audio") "" else c.text)
+        put("driveFileId", c.remote)
+        if (c.kind == "voice") {
+            put("voiceMode", c.voiceMode); put("originalMimeType", c.mime)
+            put("transcriptFileId", if (transcriptOnly) c.remote else c.transcriptRemote)
+        }
         put("transcriptionStatus", c.transcription); put("originalName", c.name)
         put("source", "Dashboard2.0")
     }.toString(2).toByteArray(Charsets.UTF_8)

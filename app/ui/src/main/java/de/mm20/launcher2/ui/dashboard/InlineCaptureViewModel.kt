@@ -16,6 +16,8 @@ import android.provider.OpenableColumns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import de.mm20.launcher2.capture.InboxStore
+import de.mm20.launcher2.capture.VoiceRecordingMode
+import de.mm20.launcher2.capture.VoiceRecordingSettings
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -44,12 +46,14 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
     var launchExternal by mutableStateOf(false); private set
     var transcript by mutableStateOf(""); private set
     var transcription by mutableStateOf("none"); private set
+    var voiceMode by mutableStateOf(VoiceRecordingSettings.get(app)); private set
     private var savedId: String? = null
     private var recorder: MediaRecorder? = null
     private var voiceFile: File? = null
 
     fun open(value: InlineCaptureMode) {
         if (busy || recording || pendingVoice) return
+        voiceMode = VoiceRecordingSettings.get(app)
         mode = value; state["textOpen"] = value == InlineCaptureMode.Text
         state["externalMode"] = if (value == InlineCaptureMode.Image || value == InlineCaptureMode.File) value.name else null
         launchExternal = value == InlineCaptureMode.Image || value == InlineCaptureMode.File
@@ -140,6 +144,7 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
     fun startVoice() {
         if (mode != InlineCaptureMode.Voice || busy || recording || pendingVoice) return
         if (app.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { permissionDenied(); return }
+        voiceMode = VoiceRecordingSettings.get(app)
         val file = File(app.noBackupFilesDir, "recording-${UUID.randomUUID()}.m4a")
         try {
             val active = MediaRecorder(); recorder = active; voiceFile = file
@@ -175,11 +180,11 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
         val file = voiceFile ?: return
         if (busy) return
         commit({
-            savedId = InboxStore(app).use { it.save("voice", "audio/mp4", source = file.inputStream(), transcribe = true) }
+            savedId = InboxStore(app).use { it.saveVoice("audio/mp4", file.inputStream(), voiceMode) }
             file.delete()
         }) {
             voiceFile = null; pendingVoice = false
-            transcription = "pending"
+            transcription = if (voiceMode.transcribe) "pending" else "none"
             if (closeWhenSaved) { mode = null; state["textOpen"] = false }
         }
     }

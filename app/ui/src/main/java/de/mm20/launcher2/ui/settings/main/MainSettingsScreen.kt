@@ -22,6 +22,7 @@ import de.mm20.launcher2.ui.settings.locale.LocaleSettingsRoute
 import de.mm20.launcher2.ui.settings.plugins.PluginsSettingsRoute
 import de.mm20.launcher2.ui.settings.search.SearchSettingsRoute
 import kotlinx.serialization.Serializable
+import de.mm20.launcher2.ui.settings.voice.VoiceRecordingSettingsRoute
 
 @Serializable
 data object MainRoute: NavKey
@@ -41,6 +42,8 @@ fun MainSettingsScreen() {
                         context.startActivity(Intent().setClassName(context.packageName,
                             "de.mm20.launcher2.updates.UpdateActivity").putExtra("automatic", true))
                     })
+                Preference(title = "Voice recordings", summary = "Choose audio, local transcripts, or both",
+                    onClick = { backStack.add(VoiceRecordingSettingsRoute) })
                 Preference(
                     icon = R.drawable.palette_24px,
                     title = stringResource(id = R.string.preference_screen_appearance),
