@@ -385,7 +385,7 @@ class DashboardHomeTest {
                 compose.onNodeWithText("Close", useUnmergedTree = true).performScrollTo().performClick()
                 compose.onNodeWithText("Discard unsaved note?").assertExists()
                 compose.onNodeWithText("Keep editing").performClick()
-                compose.onNodeWithTag("inline-note-save").performScrollTo().performClick()
+                compose.onNodeWithTag("inline-note-save").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
                 compose.waitUntil(5000) {
                     id = InboxStore(context).use { it.list().find { capture -> capture.text == text }?.id }; id != null
                 }

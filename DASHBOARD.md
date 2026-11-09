@@ -79,8 +79,13 @@ The small **Widgets** control offers precise position/size inputs and restores h
 items, including very small widgets whose handles overlap. Tap a handle to open
 precise position/size inputs; Hide, Widget settings and Remove everywhere are in that dialog (the latter two for regular widgets). **Add widget** opens the existing
 picker. Grid density is configured only in **Settings → Home screen → Widget grid**.
-Choose **Portrait**, **Landscape**, or **Unfolded**, then 2–12 columns and 40–120 dp
-row height. Save applies that density to Home and all widget pages in that profile,
+There are no layout-mode buttons in Settings or rearranging. The app edits only
+its active layout, detected from the current window and folding state. Rotate or
+open/close the phone to make another layout active, then edit it there. The grid
+dialog shows a read-only active-layout label, with 2–12 columns and 40–120 dp row
+height. Switching layouts while that dialog is open discards the previous layout's
+unsaved draft and loads the newly active layout's settings. Save applies that
+density to Home and all widget pages in the active layout,
 reflowing crowded widgets downward. Other profiles retain their settings. Existing
 page positions/sizes are retained where they fit. Changes are atomic; if reflow
 cannot fit, the previous settings/layouts remain. New pages inherit the profile's
@@ -94,7 +99,7 @@ Unfolded, with a minimum window width/height of 600 dp as the large-screen fallb
 Tablets and large windows therefore also use Unfolded. The orientation preference
 is honored; Auto respects Android's rotation setting.
 
-**Hide** affects only the selected profile and does not delete notes or widget
+**Hide** affects only the active profile and does not delete notes or widget
 data. **Show** in Widgets restores it. Empty dashboard sections are visible as
 placeholders in the editor so you can size them before content arrives. Regular
 widget content/configuration is shared across profiles; native Android widget IDs

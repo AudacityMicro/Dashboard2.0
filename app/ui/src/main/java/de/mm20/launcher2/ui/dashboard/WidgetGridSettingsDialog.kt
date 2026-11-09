@@ -17,9 +17,15 @@ import kotlin.math.roundToInt
 
 @Composable
 fun WidgetGridSettingsDialog(onDismiss: () -> Unit) {
+    val profile = currentGridProfile()
+    // A physical layout change discards the old draft and cancels its UI scope.
+    key(profile) { ActiveWidgetGridSettingsDialog(profile, onDismiss) }
+}
+
+@Composable
+private fun ActiveWidgetGridSettingsDialog(profile: GridProfile, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var profile by remember { mutableStateOf(GridProfile.Portrait) }
     var columns by remember { mutableFloatStateOf(4f) }
     var rows by remember { mutableFloatStateOf(56f) }
     var ready by remember { mutableStateOf(false) }
@@ -34,12 +40,8 @@ fun WidgetGridSettingsDialog(onDismiss: () -> Unit) {
     }
     AlertDialog(onDismissRequest = { if (!busy) onDismiss() }, title = { Text("Widget grid") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            GridProfile.entries.forEach { mode ->
-                FilterChip(selected = profile == mode, enabled = !busy,
-                    onClick = { if (profile != mode) { ready = false; profile = mode } }, label = { Text(mode.name) },
-                    modifier = Modifier.testTag("grid-settings-${mode.name}"))
-            }
-            Text("Applies to Home and all widget pages in this screen layout. Other layouts keep their settings.")
+            Text("Active layout: ${profile.name}", modifier = Modifier.testTag("grid-active-layout"))
+            Text("Applies to Home and all widget pages in the active layout. Rotate or open your phone to edit another layout.")
             Text("Columns: ${columns.roundToInt()}")
             Slider(columns, { columns = it }, enabled = ready && !busy, valueRange = 2f..12f, steps = 9,
                 modifier = Modifier.testTag("grid-settings-columns"))
