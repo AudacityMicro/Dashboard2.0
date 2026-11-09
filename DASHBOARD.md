@@ -320,6 +320,14 @@ other build types must use their own provider. Installing a future published
 release, OEM installer handling and download recovery still need physical-device
 acceptance testing; automated tests cover integrity/identity rejection and UI entry.
 
+The permanent download button uses GitHub's `/releases/latest/download/Dashboard-2.0-preview.apk`
+URL. It follows the newest published release marked Latest, not unbuilt source commits.
+Publish distributed preview builds as regular GitHub releases (with preview status clearly
+stated in the title/notes), since GitHub's Latest download alias excludes prereleases.
+Upload and verify the APK and checksum while the release is a draft, then publish it
+with Make latest enabled. Never mark a release Latest without the expected APK asset.
+Keep older versioned releases immutable. The website and repository share this same URL.
+
 Maintainers: tag releases `vMAJOR.MINOR.PATCH-preview.NUMBER` or `vMAJOR.MINOR.PATCH`;
 publish a fully uploaded `Dashboard-2.0-preview.apk` asset with its GitHub SHA-256 digest. Keep `versionName` aligned
 with the tag and increment Android `versionCode` for every distributed build (including
