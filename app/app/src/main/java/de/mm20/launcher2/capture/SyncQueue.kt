@@ -76,14 +76,7 @@ class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
                     if (!store.file(original.id).isFile) {
                         store.update(original.id, "state" to "failed"); continue
                     }
-                    val remote = original.remote.ifEmpty { DriveHttp.newId(token).also { store.update(original.id, "remote" to it) } }
-                    val manifest = original.manifest.ifEmpty { DriveHttp.newId(token).also { store.update(original.id, "manifest" to it) } }
-                    val capture = original.copy(remote = remote, manifest = manifest, owner = subject)
-                    val extension = when (capture.kind) { "text" -> "txt"; "voice" -> if (capture.mime == "audio/mp4") "m4a" else "audio"; "image" -> "image"; else -> "file" }
-                    val filename = if (capture.name.isNotBlank()) "Dashboard-${capture.id}-${capture.name}" else "Dashboard-${capture.id}.$extension"
-                    DriveHttp.upload(token, remote, capture.id, filename, capture.mime, store.file(capture.id))
-                    DriveHttp.upload(token, manifest, capture.id, "Dashboard-${capture.id}.json", "application/json", bytes = store.manifest(capture))
-                    store.update(capture.id, "state" to "synced")
+                    CaptureDriveUpload.upload(store, original.copy(owner = subject), token)
                 }
                 if (boardNeedsRetry) Result.retry() else Result.success()
             } catch (e: DriveFailure) {

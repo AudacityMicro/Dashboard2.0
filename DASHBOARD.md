@@ -181,7 +181,14 @@ not keep access to the provider URI or execute documents. Providers may themselv
 need a connection to download cloud-only files before import.
 
 Voice recording uses mono 16 kHz AAC. Saving commits the original audio before
-automatic English transcription starts. Vosk decodes that saved file locally in
+optional English transcription starts. Choose **Settings → Voice recordings**:
+
+- **Transcript only:** transcribe on this phone and upload text only; retain original audio locally.
+- **Audio only:** no transcription; upload the original audio bytes unchanged.
+- **Audio and transcript** (default): upload original audio and a separate text transcript when recognition succeeds.
+
+Capture metadata accompanies each upload. The choice is saved at recording start or
+audio import and stays fixed for retries. Vosk decodes that saved file locally in
 WorkManager, with no network constraint, Google sign-in or microphone access during
 transcription. Pending transcription survives app/process restart; startup and the
 15-minute recovery job reschedule it. Work is serialized, and appended requests
@@ -191,16 +198,22 @@ can defer processing; force-stopped apps resume after reopening.
 The saved sheet displays the transcript when ready; reopen the voice item in Inbox
 to read it later and play the audio. Speech recognition is approximate and English
 only in this increment. Silence/unsupported audio/recognition failure is explicit,
-and the audio remains intact. Failed transcription permits raw-audio synchronization
-so the agent can use its own transcription tools. Abruptly killing the app before
+and the audio remains intact. In Audio and transcript mode, failed transcription
+permits raw-audio synchronization so the agent can use its own transcription tools.
+Transcript only never falls back to uploading audio: use Retry in Capture inbox
+to retry failed/no-speech recognition. Audio only skips the recognition queue entirely. Abruptly killing the app before
 recording is stopped can still leave an uncommitted staging recording.
 
-Database version 2 preserves existing captures and adds `transcription` and `name`.
+Database version 3 preserves existing captures, including version 2
+`transcription` and `name`, and adds per-capture `voice_mode` and `transcript_remote`.
 Older voice notes are left intact and are not automatically retranscribed. New
 voice manifests wait for transcription to finish and include `transcriptionStatus`
 and the transcript in `text`; generic uploads use `kind: file` and `originalName`.
 The existing manifest schema stays version 1 with additive optional fields. The
-original payload is always uploaded before its manifest. Starter guide version 6
+selected payload(s) are uploaded before the manifest. Voice manifests add
+`voiceMode`, `originalMimeType` and `transcriptFileId`; transcript-only captures
+use `mimeType: text/plain` and point `driveFileId` at the text file. Audio-only
+metadata has empty `text` and no transcript file ID. Starter guide version 7
 explains these fields, uncertainty and safe document handling. Existing Drive guides
 remain user-owned; copy the new setup prompt to the agent to merge the guidance.
 
@@ -405,7 +418,7 @@ handles daylight-saving changes and keeps unchanged checks quiet. The launcher
 cannot schedule another agent itself; unsupported agents must explain that and
 check on demand. The user can change the default hours and timezone.
 
-Starter guide version 6 allows agents to maintain that guide, checkpoint durable
+Starter guide version 7 allows agents to maintain that guide, checkpoint durable
 memory before context compaction, and connect email/calendar through their own tools.
 These are instructions for the agent, not additional launcher integrations. For an
 existing Drive guide, copy the updated prompt to your agent so it can merge the new

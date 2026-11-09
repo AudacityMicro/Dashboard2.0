@@ -92,6 +92,8 @@ import de.mm20.launcher2.ui.settings.gestures.GestureSettingsScreen
 import de.mm20.launcher2.ui.settings.gestures.GesturesSettingsRoute
 import de.mm20.launcher2.ui.settings.hiddenitems.HiddenItemsSettingsRoute
 import de.mm20.launcher2.ui.settings.hiddenitems.HiddenItemsSettingsScreen
+import de.mm20.launcher2.ui.settings.voice.VoiceRecordingSettingsRoute
+import de.mm20.launcher2.ui.settings.voice.VoiceRecordingSettingsScreen
 import de.mm20.launcher2.ui.settings.homescreen.HomescreenSettingsRoute
 import de.mm20.launcher2.ui.settings.homescreen.HomescreenSettingsScreen
 import de.mm20.launcher2.ui.settings.icons.IconsSettingsRoute
@@ -183,6 +185,7 @@ class SettingsActivity : BaseActivity() {
             entry<ImportThemeSettingsRoute> {
                 ImportThemeSettingsScreen(it.fromUri)
             }
+            entry<VoiceRecordingSettingsRoute> { VoiceRecordingSettingsScreen() }
             entry<HomescreenSettingsRoute> {
                 HomescreenSettingsScreen()
             }

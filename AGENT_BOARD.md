@@ -18,7 +18,7 @@ verify its own scheduler, update existing schedules and keep unchanged checks qu
 Copying it does not itself start monitoring. User instructions
 and agent safety rules still take precedence over file contents.
 
-### Starter guide version 6
+### Starter guide version 7
 
 The starter prompt explicitly authorizes the agent to maintain its own guide in
 place, merge user changes, keep a recoverable prior version and record revisions.
@@ -36,7 +36,7 @@ commitments, authorization boundaries and deduplication history; larger ledgers 
 indexed archives rather than silently dropping records. External actions require
 reconciliation after an interruption, rather than assuming exactly-once execution.
 
-The version 6 prompt asks an agent receiving an older guide to merge the new guidance
+The version 7 prompt asks an agent receiving an older guide to merge the new guidance
 into that same file while preserving customizations. The phone still never overwrites
 an existing guide. Existing installations must copy the updated setup prompt to their
 agent to apply this change; installing an APK alone does not modify an old Drive guide.
@@ -47,7 +47,7 @@ the copied setup prompt and the initial Drive upload.
 
 ### Digest and archive provided notes
 
-The version 6 guide authorizes the agent to manage Dashboard captures and other files
+The version 7 guide authorizes the agent to manage Dashboard captures and other files
 the user explicitly provides for this workflow. It reads/interprets the original,
 merges useful information into `Dashboard-agent-memory.md` (the context document),
 and verifies context/state/task writes before moving originals. Unsupported or
@@ -156,3 +156,5 @@ The phone polls on launcher resume, manual Refresh, and periodic background work
 It keeps the last valid board offline. An invalid file shows an error and preserves
 that copy while phone task edits can still be exported. Do not assume an edit appears
 instantly or that the phone's last sync includes changes made afterward.
+
+Voice capture manifests can declare `voiceMode` and `transcriptFileId`. In `transcript` mode the primary Drive payload is text; audio stays local. In `audio` mode there is no local transcript. In `both` mode the optional text sidecar belongs to the same capture UUID: digest and archive all linked Drive files together, avoiding duplicate processing. Existing user-owned Drive guides are never overwritten automatically; copy the updated setup prompt to merge this guidance.

@@ -90,11 +90,12 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
             if (model.saved) {
                 Text("Saved offline", style = MaterialTheme.typography.titleLarge, modifier = Modifier.testTag("inline-capture-saved"))
                 if (mode == InlineCaptureMode.Voice) {
-                    Text("Automatic transcript · English", style = MaterialTheme.typography.titleMedium)
+                    Text(if (model.voiceMode.transcribe) "Automatic transcript · English" else "Original audio only", style = MaterialTheme.typography.titleMedium)
                     Text(when (model.transcription) {
+                        "none" -> "Transcription is off. Only the original audio will be uploaded."
                         "ready" -> model.transcript
-                        "no_speech" -> "No speech detected. Your audio is saved."
-                        "failed" -> "Couldn't transcribe this recording. Your audio is saved."
+                        "no_speech" -> if (model.voiceMode == de.mm20.launcher2.capture.VoiceRecordingMode.Transcript) "No speech detected. Audio stays on this phone. Retry in Capture inbox; no audio will be uploaded." else "No speech detected. Your audio is saved."
+                        "failed" -> if (model.voiceMode == de.mm20.launcher2.capture.VoiceRecordingMode.Transcript) "Couldn't transcribe. Audio stays on this phone. Retry in Capture inbox; no audio will be uploaded." else "Couldn't transcribe this recording. Your audio is saved."
                         else -> "Transcribing on this phone… You can close this; it continues offline."
                     }, modifier = Modifier.testTag("inline-voice-transcript"))
                 }
@@ -111,7 +112,7 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
                         Text("%02d:%02d".format(elapsed / 60, elapsed % 60), style = MaterialTheme.typography.displayMedium,
                             modifier = Modifier.testTag("inline-voice-timer"))
                         Text(if (model.recording) "Release to save. Also saves when you leave Home."
-                            else "Hold to record; release to save. Up to 10 minutes. English transcription runs automatically on this phone after saving.")
+                            else "Hold to record; release to save. Up to 10 minutes. ${model.voiceMode.description}")
                         if (model.pendingVoice) Button(onClick = { model.saveVoice() }, enabled = !model.busy,
                             modifier = Modifier.fillMaxWidth().testTag("inline-voice-retry")) { Text("Retry save") }
                         else HoldToRecordButton(model, Modifier.fillMaxWidth().testTag("inline-voice-record"))
