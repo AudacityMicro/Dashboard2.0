@@ -150,7 +150,7 @@ fun ConfigureWidgetSheet(
                 is WeatherWidget -> ConfigureWeatherWidget(widget, onWidgetUpdated)
                 is AppWidget -> ConfigureAppWidget(widget, onWidgetUpdated, gridManaged)
                 is CalendarWidget -> ConfigureCalendarWidget(widget, onWidgetUpdated)
-                is AppsWidget -> ConfigureFavoritesWidget(widget, onWidgetUpdated)
+                is AppsWidget -> if (!widget.config.favoritesOnly) ConfigureFavoritesWidget(widget, onWidgetUpdated)
                 is MusicWidget -> ConfigureMusicWidget(widget, onWidgetUpdated)
                 is NotesWidget -> ConfigureNotesWidget(widget, onWidgetUpdated)
             }

@@ -88,7 +88,8 @@ fun GridItem(
     item: SavableSearchable,
     showLabels: Boolean = true,
     labelMaxLines: Int = 1,
-    highlight: Boolean = false
+    highlight: Boolean = false,
+    allowLongClick: Boolean = true
 ) {
     val viewModel: SearchableItemVM = listItemViewModel(key = "search-${item.key}")
     val iconSize = LocalGridSettings.current.iconSize.dp.toPixels()
@@ -118,10 +119,10 @@ fun GridItem(
                         showPopup = true
                     }
                 },
-                onLongClick = {
+                onLongClick = if (allowLongClick) ({
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                     showPopup = true
-                },
+                }) else null,
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
             ) then if (!showLabels) Modifier.aspectRatio(1f) else Modifier,
