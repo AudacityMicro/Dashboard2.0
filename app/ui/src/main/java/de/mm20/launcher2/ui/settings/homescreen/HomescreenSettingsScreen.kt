@@ -90,7 +90,7 @@ fun HomescreenSettingsScreen() {
     PreferenceScreen(title = stringResource(id = R.string.preference_screen_homescreen)) {
         item {
             PreferenceCategory {
-                Preference(title = "Widget grid", summary = "Columns and row height for Portrait, Landscape and Unfolded screens", onClick = { showGrid = true })
+                Preference(title = "Widget grid", summary = "Columns and row height for the active screen layout", onClick = { showGrid = true })
                 SwitchPreference(
                     title = stringResource(R.string.preference_layout_fixed_rotation),
                     summary = stringResource(R.string.preference_layout_fixed_rotation_summary),

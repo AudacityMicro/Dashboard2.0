@@ -41,7 +41,7 @@ data class GridTile(val id: String, val label: String, val rows: Int = 4, val vi
     val content: @Composable (Modifier) -> Unit)
 
 @Composable
-private fun currentGridProfile(): GridProfile {
+internal fun currentGridProfile(): GridProfile {
     val config = LocalConfiguration.current
     val activity = LocalActivity.current
     val context = LocalContext.current

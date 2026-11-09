@@ -38,20 +38,68 @@ class WidgetGridTest {
         compose.onNodeWithTag("grid-edit-h").performTextReplacement(height)
         compose.onNodeWithText("Save layout").performClick()
     }
-    @Test fun homeSettingsExposeAllScreenGrids() {
+    @Test fun homeSettingsEditOnlyTheActiveScreenGrid() {
         ActivityScenario.launch(de.mm20.launcher2.ui.settings.SettingsActivity::class.java).use {
             val homeLabel = context.getString(de.mm20.launcher2.ui.R.string.preference_screen_homescreen)
             compose.onNodeWithText(homeLabel).performScrollTo().performClick()
             compose.onNodeWithText("Widget grid").performScrollTo().performClick()
-            compose.waitUntil(5000) { compose.onAllNodesWithTag("grid-settings-Portrait").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("grid-active-layout").fetchSemanticsNodes().isNotEmpty() && compose.onAllNodes(hasText("Save grid") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("grid-active-layout").assert(hasClickAction().not())
+            GridProfile.entries.forEach { compose.onNodeWithTag("grid-settings-${it.name}").assertDoesNotExist() }
             compose.onNodeWithText("Save grid").assertIsEnabled()
-            compose.onNodeWithTag("grid-settings-Portrait").performClick()
-            compose.onNodeWithText("Save grid").assertIsEnabled()
-            compose.onNodeWithTag("grid-settings-Landscape").performClick()
-            compose.onNodeWithTag("grid-settings-Unfolded").performClick()
             compose.onNodeWithText("Cancel").performClick()
-            compose.onNodeWithTag("grid-settings-Portrait").assertDoesNotExist()
+            compose.onNodeWithTag("grid-active-layout").assertDoesNotExist()
         }
+    }
+    @Test fun settingsFollowPhysicalLayoutChangesAndNeverCarryDraftsBetweenLayouts() {
+        val config = mutableStateOf(Configuration(context.resources.configuration).apply { screenWidthDp = 400; screenHeightDp = 900 })
+        val visible = mutableStateOf(true)
+        val store = WidgetGridStore(context)
+        val keys = GridProfile.entries.map { "grid.config.${it.name}" }
+        val before = DashboardStore(context).use { db -> keys.associateWith { db.meta(it) } }
+        val layouts = DashboardStore(context).use { db -> db.readableDatabase.rawQuery("SELECT key,value FROM meta WHERE key LIKE 'grid.v1.%'", null).use { c ->
+            buildMap { while (c.moveToNext()) put(c.getString(0), c.getString(1)) }
+        } }
+        fun ready(profile: GridProfile, columns: Int) {
+            compose.waitUntil(5000) { compose.onAllNodesWithText("Active layout: ${profile.name}").fetchSemanticsNodes().isNotEmpty() &&
+                compose.onAllNodesWithText("Columns: $columns").fetchSemanticsNodes().isNotEmpty() &&
+                compose.onAllNodes(hasText("Save grid") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        }
+        fun columns(value: Float) { compose.onNodeWithTag("grid-settings-columns").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(value) } }
+        fun rotate(width: Int, height: Int) { compose.runOnIdle { config.value = Configuration(config.value).apply { screenWidthDp = width; screenHeightDp = height }; visible.value = true } }
+        try {
+            DashboardStore(context).use { db ->
+                db.setMeta("grid.config.Portrait", """{"columns":4,"rowDp":56}""")
+                db.setMeta("grid.config.Landscape", """{"columns":8,"rowDp":80}""")
+                db.setMeta("grid.config.Unfolded", """{"columns":10,"rowDp":96}""")
+            }
+            ActivityScenario.launch(LauncherActivity::class.java).use { home ->
+                home.onActivity { activity -> activity.setContent { MaterialTheme {
+                    CompositionLocalProvider(LocalConfiguration provides config.value) {
+                        if (visible.value) WidgetGridSettingsDialog { visible.value = false }
+                    }
+                } } }
+                ready(GridProfile.Portrait, 4)
+                columns(6f) // Unsaved portrait draft must not be applied to landscape.
+                rotate(900, 400); ready(GridProfile.Landscape, 8)
+                columns(7f)
+                compose.onNodeWithText("Save grid").performClick()
+                compose.waitUntil(5000) { store.configuration(GridProfile.Landscape).columns == 7 }
+                assertEquals(4, store.configuration(GridProfile.Portrait).columns)
+                assertEquals(10, store.configuration(GridProfile.Unfolded).columns)
+                rotate(800, 900); ready(GridProfile.Unfolded, 10)
+                columns(9f)
+                compose.onNodeWithText("Save grid").performClick()
+                compose.waitUntil(5000) { store.configuration(GridProfile.Unfolded).columns == 9 }
+                assertEquals(7, store.configuration(GridProfile.Landscape).columns)
+                rotate(400, 900); ready(GridProfile.Portrait, 4)
+                columns(5f)
+                compose.onNodeWithText("Save grid").performClick()
+                compose.waitUntil(5000) { store.configuration(GridProfile.Portrait).columns == 5 }
+                assertEquals(7, store.configuration(GridProfile.Landscape).columns)
+                assertEquals(9, store.configuration(GridProfile.Unfolded).columns)
+            }
+        } finally { DashboardStore(context).use { db -> (before + layouts).forEach { (key,value) -> db.setMeta(key,value) } } }
     }
     @Test fun gridSettingsReflowPagesAtomicallyAndKeepOtherProfiles() {
         val suffix = java.util.UUID.randomUUID().toString()
