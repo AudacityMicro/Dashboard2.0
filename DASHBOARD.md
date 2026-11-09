@@ -545,3 +545,14 @@ For an existing agent, copy the updated setup prompt and ask it to merge the gui
 into its current Drive instructions; the launcher does not overwrite those files.
 Markdown content remains available offline and participates in normal widget
 scrolling, resizing and automatic height.
+
+### Delete while arranging widgets
+
+Long-press a widget to select it. A trash button appears on the selected widget,
+and **Delete widget** is available in the arrangement toolbar (including for tiny
+widgets whose move/resize handles need the space). Deleting a regular launcher or
+Android widget uses the existing confirmation and removes that widget instance
+from all layouts. Hiding only the current layout remains available in Position and
+size. Built-in Dashboard sections are removed only from the active layout; restore
+them from **Widgets → Show …**. Their notes, agent updates and tasks stay intact.
+The action is also available to accessibility users on the selected widget.

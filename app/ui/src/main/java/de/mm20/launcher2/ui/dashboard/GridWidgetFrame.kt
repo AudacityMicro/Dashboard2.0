@@ -8,6 +8,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,17 +26,19 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import de.mm20.launcher2.dashboard.GridCell
+import de.mm20.launcher2.ui.R
 import kotlin.math.roundToInt
 
 /** Observe long presses before child controls; short taps and scrolling remain with the content. */
 @Composable
 internal fun GridWidgetFrame(id: String, cell: GridCell, stepX: Float, stepY: Float, direction: Int, columns: Int,
     selected: Boolean, editing: Boolean, enabled: Boolean, onSelect: () -> Unit,
-    onPlace: (GridCell) -> Unit, onExactSize: () -> Unit, content: @Composable () -> Unit) {
+    onPlace: (GridCell) -> Unit, onExactSize: () -> Unit, onDelete: () -> Unit, content: @Composable () -> Unit) {
     val select by rememberUpdatedState(onSelect)
     val place by rememberUpdatedState(onPlace)
     val haptic = LocalHapticFeedback.current
@@ -84,7 +89,10 @@ internal fun GridWidgetFrame(id: String, cell: GridCell, stepX: Float, stepY: Fl
             scaleX = (preview.width * stepX - gutter).coerceAtLeast(1f) / (cell.width * stepX - gutter).coerceAtLeast(1f)
             scaleY = (preview.height * stepY - gutter).coerceAtLeast(1f) / (cell.height * stepY - gutter).coerceAtLeast(1f)
         }
-        .semantics { onLongClick("Arrange widget") { if (enabled) { select(); true } else false } }
+        .semantics {
+            onLongClick("Arrange widget") { if (enabled) { select(); true } else false }
+            if (selected && enabled) customActions = listOf(CustomAccessibilityAction("Delete widget") { onDelete(); true })
+        }
         .pointerInput(id, enabled) {
             if (!enabled) return@pointerInput
             awaitEachGesture {
@@ -119,6 +127,18 @@ internal fun GridWidgetFrame(id: String, cell: GridCell, stepX: Float, stepY: Fl
                     .semantics { contentDescription = "Resize widget $corner" }, sides.first, sides.second), contentAlignment = alignment) {
                     Box(Modifier.size(14.dp).background(MaterialTheme.colorScheme.primary, CircleShape)
                         .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape))
+                }
+            }
+            // Keep the trash target separate from the move/resize handles. Compact widgets
+            // still have the same action in the arrangement toolbar and accessibility menu.
+            if (cell.width * stepX >= with(density) { 128.dp.toPx() } &&
+                cell.height * stepY >= with(density) { 128.dp.toPx() }) {
+                FilledIconButton(onClick = onDelete, enabled = enabled,
+                    modifier = Modifier.align(Alignment.Center).size(48.dp).testTag("grid-delete-$id"),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer)) {
+                    Icon(painterResource(R.drawable.delete_24px), contentDescription = "Delete widget")
                 }
             }
         }
