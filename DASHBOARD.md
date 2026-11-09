@@ -526,3 +526,7 @@ explicit discard removes it. Abrupt process death before commitment can still le
 staging recordings requiring manual recovery. The three-dot menu's **Capture inbox /
 Drive setup** opens the existing Inbox for reviewing captures and account setup.
 Passive shares and legacy quick-capture shortcuts retain their Activity behavior.
+
+### Voice hold feedback
+
+While recording, the Voice button grows to more than twice its idle height and becomes wider in the capture dock. Once a press starts recording, moving the original finger outside the button (including across other controls or into the scrolling dashboard) keeps recording active. Lifting that finger saves once. Genuine system cancellation or leaving the launcher still stops and saves the microphone safely; accessibility activation continues to toggle start/stop.
