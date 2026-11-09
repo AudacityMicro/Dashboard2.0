@@ -4,9 +4,11 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.plugin.compose)
 }
 
 android {
+    buildFeatures { compose = true }
     androidResources {
         generateLocaleConfig = true
     }
@@ -34,8 +36,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = System.getenv("VERSION_CODE_OVERRIDE")?.toIntOrNull() ?: 2026091501
-        versionName = "0.1.0-preview.3"
+        versionCode = System.getenv("VERSION_CODE_OVERRIDE")?.toIntOrNull() ?: 2026091502
+        versionName = "0.1.0-preview.4"
     }
 
     buildTypes {
@@ -110,6 +112,11 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation(libs.androidx.compose.uitest)
+    implementation(libs.androidx.compose.runtime)
+    androidTestImplementation(libs.androidx.activitycompose)
+    androidTestImplementation(libs.androidx.compose.foundation)
+    androidTestImplementation(libs.androidx.compose.foundationlayout)
+    androidTestImplementation(libs.androidx.compose.material3)
 
     //Android Jetpack
     implementation(libs.androidx.appcompat)

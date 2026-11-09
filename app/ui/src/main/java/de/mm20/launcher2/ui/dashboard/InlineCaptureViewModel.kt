@@ -34,6 +34,9 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
     var saved by mutableStateOf(false); private set
     var error by mutableStateOf(""); private set
     var recording by mutableStateOf(false); private set
+    var holding by mutableStateOf(false); private set
+    var holdFromDock by mutableStateOf(false); private set
+    var holdPermissionRequested by mutableStateOf(false); private set
     var startedAt by mutableLongStateOf(0); private set
     var pendingVoice by mutableStateOf(false); private set
     var launchExternal by mutableStateOf(false); private set
@@ -52,6 +55,31 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
     }
     fun edit(value: String) { if (!busy && value.length <= 65536) { draft = value; state["textDraft"] = value; saved = false } }
     fun permissionDenied() { error = "Microphone permission is needed to record. You can enable it in Android settings." }
+    fun holdPermissionLaunched() { holdPermissionRequested = false }
+    fun beginHold(fromDock: Boolean = false) {
+        if (busy || pendingVoice || recording) return
+        if (app.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            open(InlineCaptureMode.Voice); holdPermissionRequested = true; return
+        }
+        open(InlineCaptureMode.Voice)
+        holdFromDock = fromDock
+        holding = true
+        startVoice()
+        if (!recording) holding = false
+    }
+    fun endHold() {
+        if (!holding) return
+        stopAndSave(); holding = false
+    }
+    // TalkBack/switch access cannot sustain a pointer hold: explicit activation toggles recording.
+    fun accessibleVoiceAction() {
+        if (recording) { stopAndSave(); holding = false }
+        else {
+            open(InlineCaptureMode.Voice)
+            if (app.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startVoice()
+            else holdPermissionRequested = true
+        }
+    }
     fun close() { if (!busy && !recording && !pendingVoice) { mode = null; state["textOpen"] = false; state["externalMode"] = null } }
     fun externalLaunched() { launchExternal = false }
     fun externalFailed() { launchExternal = false; error = "Couldn't open the camera or file picker. Try again." }
@@ -165,7 +193,7 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
             }
         }
     }
-    fun backgrounded() { if (recording) stopAndSave() }
+    fun backgrounded() { if (holding) endHold() else if (recording) stopAndSave() }
     override fun onCleared() {
         // This executor drains a pending durable write even after the UI owner is destroyed.
         backgrounded(); io.shutdown(); super.onCleared()

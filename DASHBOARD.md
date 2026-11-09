@@ -62,8 +62,22 @@ least-privilege `drive.file` scope. Each capture produces:
 
 ### Home capture tools
 
-The four Home buttons are **Text**, **Voice**, **Photo** and **Upload**. Text and
-voice remain in the launcher's themed sheet. Photo immediately opens the installed
+The four Home controls are **Text**, **Voice** (hold), **Photo** and **Upload**. They
+stay in a bottom dock while the dashboard and optional widgets scroll above them.
+Dashboard cards use the same surface transparency and card styling as launcher
+widgets. The search bar's three-dot menu includes **Update launcher**, so updates
+remain available after setup is hidden.
+
+Hold Voice begins recording on pointer down, with no long-press delay; releasing
+or cancelling the gesture stops and saves exactly once. Leaving the foreground also
+stops and saves. First use requests microphone permission and requires a fresh hold
+after granting it; it never starts recording behind a permission dialog. Very short
+recordings may be rejected by Android and show a retry message. The dock shows the
+recording state; release opens the saved-note/transcript sheet. TalkBack and switch
+access can activate the voice control to start and activate again to stop, since
+they cannot sustain a physical pointer hold. The voice sheet supports holding too.
+
+Text and voice remain in the launcher's themed sheet. Photo immediately opens the installed
 camera through Android's full-resolution `TakePicture` contract; cancel creates no
 inbox entry. The temporary camera URI uses the existing nonexported FileProvider.
 Android's camera app is needed for taking photos. Upload immediately opens Android's

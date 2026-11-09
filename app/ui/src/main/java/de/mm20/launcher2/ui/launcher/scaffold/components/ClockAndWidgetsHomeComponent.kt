@@ -82,17 +82,9 @@ internal object ClockAndWidgetsHomeComponent : ScaffoldComponent() {
             }
         }
 
-        Column(
-            modifier = modifier
-                .verticalScroll(scrollState, enabled = !state.isDragged)
-                .padding(horizontal = 8.dp)
-                .padding(top = topPadding)
-                .padding(insets),
-        ) {
-            if (!editMode) de.mm20.launcher2.ui.dashboard.DashboardPanel(Modifier.padding(top = 12.dp))
+        val widgets: @Composable () -> Unit = {
             WidgetColumn(
-                modifier = Modifier
-                    .padding(top = 16.dp),
+                modifier = Modifier.padding(top = 16.dp),
                 editMode = editMode,
                 onEditModeChange = {
                     scope.launch { state.lock(hideSearchBar = true) }
@@ -100,6 +92,14 @@ internal object ClockAndWidgetsHomeComponent : ScaffoldComponent() {
                 },
                 parentId = WidgetScreenTarget.Default.id.toString(),
             )
+        }
+        if (editMode) {
+            Column(modifier.verticalScroll(scrollState, enabled = !state.isDragged)
+                .padding(horizontal = 8.dp).padding(top = topPadding).padding(insets)) { widgets() }
+        } else {
+            de.mm20.launcher2.ui.dashboard.DashboardPanel(
+                modifier.padding(insets).padding(top = 12.dp), scroll = scrollState,
+                scrollingEnabled = !state.isDragged, footer = widgets)
         }
         if (editMode) {
             BackHandler {

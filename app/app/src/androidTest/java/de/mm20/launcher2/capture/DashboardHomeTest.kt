@@ -1,6 +1,18 @@
 package de.mm20.launcher2.capture
 
 import androidx.test.core.app.ActivityScenario
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
+import de.mm20.launcher2.ui.theme.transparency.LocalTransparencyScheme
+import de.mm20.launcher2.ui.theme.transparency.TransparencyScheme
+import de.mm20.launcher2.ui.dashboard.DashboardPanel
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -13,6 +25,81 @@ import org.junit.Test
 
 class DashboardHomeTest {
     @get:Rule val compose = createEmptyComposeRule()
+    @Test fun dashboardCardsFollowTransparencyAndDockStaysBelowScrollingContent() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val oldHidden = DashboardStore(context).use { it.meta("setupHidden") }
+        val opacity = androidx.compose.runtime.mutableFloatStateOf(0f)
+        try {
+            DashboardStore(context).use { it.setMeta("setupHidden", "false") }
+            ActivityScenario.launch(LauncherActivity::class.java).use { home ->
+                home.onActivity { activity -> activity.setContent {
+                    MaterialTheme {
+                        CompositionLocalProvider(LocalTransparencyScheme provides TransparencyScheme(surface = opacity.floatValue)) {
+                            Box(Modifier.fillMaxSize().background(Color.Blue)) { DashboardPanel() }
+                        }
+                    }
+                } }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isNotEmpty() }
+                fun topPixel(tag: String): Color {
+                    compose.onNodeWithTag(tag).performScrollTo()
+                    val image = compose.onNodeWithTag(tag).captureToImage().toPixelMap()
+                    return image[image.width / 2, 2]
+                }
+                for (tag in listOf("agent-setup", "agent-updates", "todo-list")) assertEquals(Color.Blue, topPixel(tag))
+                val dock = compose.onNodeWithTag("capture-actions")
+                val dockBounds = dock.getUnclippedBoundsInRoot()
+                val image = dock.captureToImage().toPixelMap()
+                assertEquals(Color.Blue, image[image.width / 2, 2])
+                compose.onNodeWithTag("agent-setup").performScrollTo()
+                assertEquals(dockBounds, dock.getUnclippedBoundsInRoot())
+                compose.runOnIdle { opacity.floatValue = 1f }
+                assertNotEquals(Color.Blue, topPixel("agent-updates"))
+                screenshot("dashboard-transparent-dock.png")
+            }
+        } finally { DashboardStore(context).use { it.setMeta("setupHidden", oldHidden) } }
+    }
+    @Test fun searchOverflowOpensLauncherUpdater() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val monitor = instrumentation.addMonitor(de.mm20.launcher2.updates.UpdateActivity::class.java.name, null, false)
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("search-overflow-menu").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("search-overflow-menu").performClick()
+                compose.onNodeWithText("Update launcher").performClick()
+                val opened = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
+                assertNotNull(opened)
+                instrumentation.runOnMainSync { opened.finish() }
+            }
+        } finally { instrumentation.removeMonitor(monitor) }
+    }
+    @Test fun voiceStartsOnPointerDownAndSavesOnceOnRelease() = assertHeldCapture(false)
+    @Test fun cancelledVoiceGestureStillSavesExactlyOnce() = assertHeldCapture(true)
+    private fun assertHeldCapture(cancelGesture: Boolean) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, android.Manifest.permission.RECORD_AUDIO)
+        val before = InboxStore(context).use { it.list().map { capture -> capture.id }.toSet() }
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-voice").fetchSemanticsNodes().isNotEmpty() }
+                val button = compose.onNodeWithTag("capture-voice")
+                button.performTouchInput { down(center) }
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("capture-hold-recording").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("inline-capture-sheet").assertDoesNotExist()
+                Thread.sleep(1600) // MediaRecorder needs actual elapsed time, not the Compose test clock.
+                assertEquals(before, InboxStore(context).use { store -> store.list().map { capture -> capture.id }.toSet() })
+                screenshot("dashboard-hold-recording.png")
+                button.performTouchInput { if (cancelGesture) cancel() else up() }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("inline-capture-saved").fetchSemanticsNodes().isNotEmpty() }
+                InboxStore(context).use { store ->
+                    val added = store.list().filter { it.id !in before }
+                    assertEquals(1, added.size); assertTrue(store.file(added.single().id).length() > 0)
+                }
+            }
+        } finally { InboxStore(context).use { store ->
+            store.list().filter { it.id !in before }.forEach { store.writableDatabase.delete("captures", "id=?", arrayOf(it.id)); store.file(it.id).delete() }
+        } }
+    }
     private fun screenshot(name: String) {
         if (InstrumentationRegistry.getArguments().getString("screenshots") != "true") return
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -38,7 +125,7 @@ class DashboardHomeTest {
         try {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-image").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("capture-image").performScrollTo().performClick()
+                compose.onNodeWithTag("capture-image").performClick()
                 compose.waitUntil(5000) { observed.get() != null }
                 val uri = observed.get().getParcelableExtra<android.net.Uri>(android.provider.MediaStore.EXTRA_OUTPUT)
                 assertEquals("content", uri?.scheme)
@@ -68,7 +155,7 @@ class DashboardHomeTest {
         try {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-image").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("capture-image").performScrollTo().performClick()
+                compose.onNodeWithTag("capture-image").performClick()
                 compose.waitUntil(10000) { id = InboxStore(context).use { store -> store.list().find { it.id !in before }?.id }; id != null }
                 InboxStore(context).use { store ->
                     val capture = store.list().single { capture -> capture.id == id }
@@ -101,7 +188,7 @@ class DashboardHomeTest {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-file").fetchSemanticsNodes().isNotEmpty() }
                 screenshot("capture-home.png")
-                compose.onNodeWithTag("capture-file").performScrollTo().performClick()
+                compose.onNodeWithTag("capture-file").performClick()
                 compose.waitUntil(5000) { observed.get() != null }
                 assertEquals("*/*", observed.get().type)
                 compose.waitUntil(10000) {
@@ -220,7 +307,7 @@ class DashboardHomeTest {
                 compose.onNodeWithTag("capture-voice").assertExists()
                 compose.onNodeWithTag("capture-image").assertExists()
                 compose.onNodeWithTag("capture-file").assertExists()
-                compose.onNodeWithTag("capture-text").performScrollTo().performClick()
+                compose.onNodeWithTag("capture-text").performClick()
                 compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithTag("inline-note-save").assertIsNotEnabled()
                 screenshot("inline-text.png")
@@ -256,11 +343,9 @@ class DashboardHomeTest {
         try {
             ActivityScenario.launch(LauncherActivity::class.java).use { home ->
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-voice").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("capture-voice").performScrollTo().performClick()
+                compose.onNodeWithTag("capture-voice").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
                 compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-voice-record").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithText("Start recording").assertExists()
-                compose.onNodeWithTag("inline-voice-record").performClick()
-                compose.onNodeWithText("Stop and save").assertExists()
+                compose.onNodeWithTag("inline-voice-record").assertExists()
                 compose.waitUntil(5000) { compose.onAllNodesWithText("00:02").fetchSemanticsNodes().isNotEmpty() }
                 screenshot("inline-voice.png")
                 home.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)

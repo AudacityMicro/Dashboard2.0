@@ -2,7 +2,6 @@ package de.mm20.launcher2.ui.launcher.scaffold.components
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -20,10 +19,8 @@ internal object ClockHomeComponent : ScaffoldComponent() {
         LaunchedEffect(scroll.value) {
             state.onComponentScroll((scroll.value - previous).toFloat()); previous = scroll.value
         }
-        Column(modifier.verticalScroll(scroll, enabled = !state.isDragged).padding(insets).padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardPanel()
-        }
+        DashboardPanel(modifier.padding(insets).padding(bottom = 8.dp),
+            scroll = scroll, scrollingEnabled = !state.isDragged)
     }
     override suspend fun onDismiss(state: LauncherScaffoldState) { super.onDismiss(state); scroll.scrollTo(0) }
 }
