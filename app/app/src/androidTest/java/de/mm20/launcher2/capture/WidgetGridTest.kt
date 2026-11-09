@@ -32,10 +32,83 @@ class WidgetGridTest {
         Surface(modifier.testTag("test-tile-$id")) { Text(id) }
     } }
     private fun editSize(id: String, width: String, height: String) {
-        compose.onNodeWithTag("grid-resize-$id").performScrollTo().performClick()
+        compose.onNodeWithTag("grid-item-$id").performScrollTo().performTouchInput { longClick() }
+        compose.onNodeWithTag("grid-resize-$id").performClick()
         compose.onNodeWithTag("grid-edit-w").performTextReplacement(width)
         compose.onNodeWithTag("grid-edit-h").performTextReplacement(height)
         compose.onNodeWithText("Save layout").performClick()
+    }
+    @Test fun homeSettingsExposeAllScreenGrids() {
+        ActivityScenario.launch(de.mm20.launcher2.ui.settings.SettingsActivity::class.java).use {
+            val homeLabel = context.getString(de.mm20.launcher2.ui.R.string.preference_screen_homescreen)
+            compose.onNodeWithText(homeLabel).performScrollTo().performClick()
+            compose.onNodeWithText("Widget grid").performScrollTo().performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("grid-settings-Portrait").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Save grid").assertIsEnabled()
+            compose.onNodeWithTag("grid-settings-Portrait").performClick()
+            compose.onNodeWithText("Save grid").assertIsEnabled()
+            compose.onNodeWithTag("grid-settings-Landscape").performClick()
+            compose.onNodeWithTag("grid-settings-Unfolded").performClick()
+            compose.onNodeWithText("Cancel").performClick()
+            compose.onNodeWithTag("grid-settings-Portrait").assertDoesNotExist()
+        }
+    }
+    @Test fun gridSettingsReflowPagesAtomicallyAndKeepOtherProfiles() {
+        val suffix = java.util.UUID.randomUUID().toString()
+        val parents = listOf("settings-a-$suffix", "settings-b-$suffix")
+        val store = WidgetGridStore(context)
+        val keys = listOf("grid.config.Portrait", "grid.config.Landscape", "grid.config.Unfolded")
+        val before = DashboardStore(context).use { db -> keys.associateWith { db.meta(it) } }
+        // Restore all existing layouts because settings intentionally apply across widget pages.
+        val layouts = DashboardStore(context).use { db -> db.readableDatabase.rawQuery("SELECT key,value FROM meta WHERE key LIKE 'grid.v1.%'", null).use { c ->
+            buildMap { while (c.moveToNext()) put(c.getString(0), c.getString(1)) }
+        } }
+        try {
+            parents.forEach { store.save(it, GridProfile.Portrait, WidgetGridLayout(4).place("a", GridCell(0,0,2,3)).place("b", GridCell(2,0,2,3))) }
+            store.save(parents[0], GridProfile.Landscape, WidgetGridLayout(8).place("a", GridCell(2,1,4,3)))
+            store.configure(GridProfile.Portrait, 2, 80)
+            parents.forEach { parent ->
+                val grid = store.load(parent, GridProfile.Portrait)
+                assertEquals(2, grid.columns); assertEquals(80, grid.rowDp)
+                assertFalse(grid.cells.getValue("a").intersects(grid.cells.getValue("b")))
+            }
+            assertEquals(WidgetGridLayout(2,80), store.load("new-$suffix", GridProfile.Portrait))
+            assertEquals(8, store.load(parents[0], GridProfile.Landscape).columns)
+            try { store.configure(GridProfile.Portrait, 1, 80); fail("Invalid density accepted") } catch (_: IllegalArgumentException) { }
+            assertEquals(2, store.configuration(GridProfile.Portrait).columns)
+        } finally {
+            parents.forEach { cleanup(it) }
+            DashboardStore(context).use { db -> (before + layouts).forEach { (key,value) -> db.setMeta(key,value) } }
+        }
+    }
+    @Test fun longPressOverAChildButtonSelectsWithoutClickingAndKeepsShortTaps() {
+        val parent = "press-${java.util.UUID.randomUUID()}"
+        var clicks = 0
+        try {
+            WidgetGridStore(context).save(parent, GridProfile.Portrait, WidgetGridLayout(4).place("button", GridCell(0,0,4,5)))
+            ActivityScenario.launch(LauncherActivity::class.java).use { home ->
+                home.onActivity { activity -> activity.setContent { MaterialTheme {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        ProfiledWidgetGrid(parent, listOf(GridTile("button", "Button") { modifier ->
+                            Box(modifier) { androidx.compose.material3.Button(onClick = { clicks++ }, modifier = Modifier.fillMaxSize().testTag("child-button")) { Text("Tap me") } }
+                        }))
+                    }
+                } } }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("child-button").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("child-button").performClick()
+                compose.runOnIdle { assertEquals(1, clicks) }
+                compose.onNodeWithTag("child-button").performTouchInput { swipeUp(durationMillis = 200) }
+                compose.onNodeWithTag("grid-move-button").assertDoesNotExist()
+                compose.onNodeWithTag("child-button").performTouchInput { longClick() }
+                compose.onNodeWithTag("grid-move-button").assertExists()
+                listOf("", "-tl", "-tr", "-bl").forEach { compose.onNodeWithTag("grid-resize-button$it").assertExists() }
+                compose.runOnIdle { assertEquals(1, clicks) }
+                compose.onNodeWithText("Done").performScrollTo().performClick()
+                compose.onNodeWithTag("grid-move-button").assertDoesNotExist()
+                compose.onNodeWithTag("child-button").performClick()
+                compose.runOnIdle { assertEquals(2, clicks) }
+            }
+        } finally { cleanup(parent); GridEditing.active = false }
     }
     @Test fun malformedLayoutWritesCannotReplaceSavedGeometry() {
         val parent = "store-${java.util.UUID.randomUUID()}"
@@ -121,22 +194,26 @@ class WidgetGridTest {
                 assertEquals(left.top, right.top); assertTrue(left.right <= right.left)
                 editSize("left", "1", "4")
                 compose.waitUntil(5000) { store.load(parent, GridProfile.Portrait).cells["left"]?.width == 1 }
-                compose.onNodeWithTag("grid-hide-left").performScrollTo().performClick()
+                compose.onNodeWithTag("grid-resize-left").performClick()
+                compose.onNodeWithText("Hide").performClick()
                 compose.waitUntil(5000) { "left" in store.load(parent, GridProfile.Portrait).hidden }
                 compose.onNodeWithText("Widgets").performScrollTo().performClick()
                 compose.onNodeWithText("Show left").performClick()
                 compose.waitUntil(5000) { "left" !in store.load(parent, GridProfile.Portrait).hidden }
-                compose.onNodeWithTag("grid-hide-left").performScrollTo().performClick()
+                compose.onNodeWithTag("grid-item-left").performTouchInput { longClick() }
+                compose.onNodeWithTag("grid-resize-left").performClick()
+                compose.onNodeWithText("Hide").performClick()
                 compose.waitUntil(5000) { "left" in store.load(parent, GridProfile.Portrait).hidden }
-                compose.onNodeWithTag("grid-profile-Landscape").performScrollTo().performClick()
+                compose.runOnIdle { configuration.value = Configuration(configuration.value).apply { screenWidthDp = 900; screenHeightDp = 400 } }
                 compose.waitUntil(5000) { compose.onAllNodesWithTag("widget-grid-Landscape").fetchSemanticsNodes().isNotEmpty() }
                 editSize("left", "4", "2")
                 compose.waitUntil(5000) { store.load(parent, GridProfile.Landscape).cells["left"]?.width == 4 }
-                compose.onNodeWithTag("grid-profile-Unfolded").performScrollTo().performClick()
+                compose.runOnIdle { configuration.value = Configuration(configuration.value).apply { screenWidthDp = 700; screenHeightDp = 900 } }
                 compose.waitUntil(5000) { compose.onAllNodesWithTag("widget-grid-Unfolded").fetchSemanticsNodes().isNotEmpty() }
                 editSize("left", "6", "4")
                 compose.waitUntil(5000) { store.load(parent, GridProfile.Unfolded).cells["left"]?.width == 6 }
                 compose.onNodeWithText("Done").performScrollTo().performClick()
+                compose.runOnIdle { configuration.value = Configuration(configuration.value).apply { screenWidthDp = 400; screenHeightDp = 900 } }
                 compose.waitUntil(5000) { compose.onAllNodesWithTag("widget-grid-Portrait").fetchSemanticsNodes().isNotEmpty() }
                 compose.runOnIdle { configuration.value = Configuration(configuration.value).apply { screenWidthDp = 900; screenHeightDp = 400 } }
                 compose.waitUntil(5000) { compose.onAllNodesWithTag("widget-grid-Landscape").fetchSemanticsNodes().isNotEmpty() }
@@ -161,7 +238,10 @@ class WidgetGridTest {
                 home.onActivity { activity -> activity.setContent { MaterialTheme {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) { ProfiledWidgetGrid(parent, tiles, editing = true) }
                 } } }
-                compose.waitUntil(10000) { compose.onAllNodesWithTag("grid-move-left").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("grid-item-left").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("grid-item-left").performTouchInput { longClick() }
+                compose.onNodeWithText("Grid 4 cols").assertDoesNotExist()
+                compose.onNodeWithTag("grid-move-left").assertIsDisplayed()
                 val root = compose.onNodeWithTag("widget-grid-Portrait").getUnclippedBoundsInRoot()
                 val density = context.resources.displayMetrics.density
                 val dx = (root.right - root.left).value * density / 4
@@ -172,6 +252,10 @@ class WidgetGridTest {
                 compose.onNodeWithTag("grid-resize-left").performScrollTo().performTouchInput { down(center); moveBy(Offset(dx, dy), 400); up() }
                 compose.waitUntil(5000) { store.load(parent, GridProfile.Portrait).cells["left"]?.width == 3 }
                 assertEquals(4, store.load(parent, GridProfile.Portrait).cells.getValue("left").height)
+                compose.onNodeWithTag("grid-resize-left-tl").performScrollTo().performTouchInput {
+                    down(center); moveBy(Offset(dx / 2, dy / 2), 150); moveBy(Offset(dx / 2, dy / 2), 150); up()
+                }
+                compose.waitUntil(5000) { store.load(parent, GridProfile.Portrait).cells["left"] == GridCell(2, 2, 2, 3) }
             }
         } finally { cleanup(parent); GridEditing.active = false }
     }

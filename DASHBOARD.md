@@ -67,26 +67,32 @@ are hidden; a list containing completed tasks still has a small completed-count
 control. Setup retains its existing Hide setup preference, and the connection
 widget appears only when Drive needs connection attention.
 
-Open the search bar's three-dot menu and choose **Edit layout**. Dashboard sections
-and regular widgets use the same two-dimensional grid. Drag **Move** horizontally
-and vertically, drag **Resize**, or tap a size to enter exact column, row, width and
-height. **Widgets** also opens precise placement for very small widgets and lets
-you restore hidden items. Use **Grid** to choose 2–12 columns and 40–120 dp row
-height. Widget spans can cover 1–12 columns (within the current grid) and 1–32 rows.
-The canvas scrolls vertically and has a 512-row bound. Crowded placements push
-intersecting widgets down rather than overlapping or losing their configuration.
-Controls can be clipped at extremely small spans while editing; use **Widgets**
-for numeric editing, then Done to see the normal full widget content.
+Long-press a widget to select it. The selected widget gains an outline, four
+corner resize handles, and a handle at the top center for moving it horizontally
+or vertically. Resize from any corner; the opposite corner stays anchored. A
+preview follows the gesture, then the widget snaps to the grid on release. Tap
+another widget to select it; Done or Back exits rearranging. Short taps and scrolls
+still go to widget content outside rearranging. There are no per-widget Move/Resize
+button rows. The search menu's **Edit layout** also opens rearranging.
 
-**Portrait**, **Landscape**, and **Unfolded** have independent saved positions,
-sizes, grid density and hidden-widget choices, for Home and for each widget page.
-Choose a profile in the editor to prepare it even on another screen size. Done
-returns to automatic selection. Normal windows use their current orientation;
-Jetpack WindowManager folding features select Unfolded, with a minimum window
-width/height of 600 dp as the large-screen fallback. Tablets and large windows
-therefore also use Unfolded. Layout selection follows the available app window,
-including resizing/multi-window. The launcher's Auto/Portrait/Landscape orientation
-preference is honored; Auto still respects Android's rotation setting.
+The small **Widgets** control offers precise position/size inputs and restores hidden
+items, including very small widgets whose handles overlap. Tap a handle to open
+precise position/size inputs; Hide, Widget settings and Remove everywhere are in that dialog (the latter two for regular widgets). **Add widget** opens the existing
+picker. Grid density is configured only in **Settings → Home screen → Widget grid**.
+Choose **Portrait**, **Landscape**, or **Unfolded**, then 2–12 columns and 40–120 dp
+row height. Save applies that density to Home and all widget pages in that profile,
+reflowing crowded widgets downward. Other profiles retain their settings. Existing
+page positions/sizes are retained where they fit. Changes are atomic; if reflow
+cannot fit, the previous settings/layouts remain. New pages inherit the profile's
+density. Widget spans cover 1–12 columns (within the grid) and 1–32 rows on a
+vertically scrolling canvas bounded at 512 rows.
+
+**Portrait**, **Landscape**, and **Unfolded** retain independent saved positions,
+sizes and hidden-widget choices for Home and every widget page. Selection follows
+the current window automatically. Jetpack WindowManager folding features select
+Unfolded, with a minimum window width/height of 600 dp as the large-screen fallback.
+Tablets and large windows therefore also use Unfolded. The orientation preference
+is honored; Auto respects Android's rotation setting.
 
 **Hide** affects only the selected profile and does not delete notes or widget
 data. **Show** in Widgets restores it. Empty dashboard sections are visible as
@@ -404,7 +410,7 @@ See [AGENT_BOARD.md](AGENT_BOARD.md) for the file contract and a sample board. U
 **Refresh dashboard** in the search bar’s three-dot menu to request an update. Sync also runs when the launcher resumes and
 through the existing periodic worker (about 15 minutes, subject to Android restrictions).
 Cached information stays visible offline without routine connection commentary.
-**Add task** lives in the fixed bottom dock. Completed tasks stay hidden by default;
+**Add task** is available in the task widget and the search bar’s three-dot menu. The bottom dock contains only Text, Voice, Photo and Upload. Completed tasks stay hidden by default;
 the small **N done** control inside the task widget toggles them.
 Phone-added tasks and explicit completion overrides survive all incoming refreshes.
 Stable task IDs identify the same task; give a genuinely new task a new ID.
@@ -423,8 +429,7 @@ Google testing; transport integration tests use a local fake server without cred
 
 ## Home quick-capture buttons
 
-The fixed bottom dock provides **Text**, **Voice** (hold), **Photo**, **Upload** and
-**Add task**. See Home capture tools above for holding, permissions, transcription
+The fixed bottom dock provides **Text**, **Voice** (hold), **Photo**, **Upload**. See Home capture tools above for holding, permissions, transcription
 and file import behavior. Text drafts (up to 65,536 characters) survive configuration
 changes and Android saved-state restoration; closing a nonblank draft asks before
 discarding it. Force-stop before Android saves state can still lose unsaved text.

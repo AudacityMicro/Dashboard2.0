@@ -105,6 +105,11 @@ fun RowScope.SearchBarMenu(
                         Icon(painterResource(R.drawable.settings_24px), contentDescription = null)
                     }
                 )
+                if (de.mm20.launcher2.ui.dashboard.GridEditing.currentParent == "home") DropdownMenuItem(
+                    modifier = Modifier.testTag("add-task-menu"), shape = MenuDefaults.middleItemShape,
+                    onClick = { showOverflowMenu = false; de.mm20.launcher2.ui.dashboard.DashboardActions.addTask = true },
+                    text = { Text("Add task") },
+                )
                 DropdownMenuItem(
                     modifier = Modifier.testTag("edit-grid-menu"), shape = MenuDefaults.middleItemShape,
                     onClick = { showOverflowMenu = false; de.mm20.launcher2.ui.dashboard.GridEditing.active = true },

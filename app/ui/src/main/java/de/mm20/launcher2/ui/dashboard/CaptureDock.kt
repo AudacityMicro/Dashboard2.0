@@ -41,7 +41,7 @@ fun HoldToRecordButton(model: InlineCaptureViewModel, modifier: Modifier = Modif
 }
 
 @Composable
-fun CaptureDock(model: InlineCaptureViewModel, modifier: Modifier = Modifier, onAddTask: () -> Unit) {
+fun CaptureDock(model: InlineCaptureViewModel, modifier: Modifier = Modifier) {
     LauncherCard(modifier.testTag("capture-actions")) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(if (model.recording) "Recording… release to save" else "Hold Voice to record",
@@ -57,8 +57,6 @@ fun CaptureDock(model: InlineCaptureViewModel, modifier: Modifier = Modifier, on
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)) { Text(label) }
                 }
             }
-            TextButton(onClick = onAddTask, modifier = Modifier.align(Alignment.End).testTag("add-task-dock"),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)) { Text("Add task") }
         }
     }
 }

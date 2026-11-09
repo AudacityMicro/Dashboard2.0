@@ -70,7 +70,10 @@ class GridScreenTest {
                 screenshot("grid-home-portrait.png")
                 compose.onNodeWithTag("search-overflow-menu").performClick()
                 compose.onNodeWithTag("edit-grid-menu").performClick()
-                compose.onNodeWithTag("grid-profile-Unfolded").assertIsDisplayed()
+                compose.onNodeWithTag("grid-profile-Unfolded").assertDoesNotExist()
+                compose.onNodeWithTag("grid-item-updates").performTouchInput { longClick() }
+                compose.onNodeWithTag("grid-move-updates").assertIsDisplayed()
+                compose.waitForIdle()
                 screenshot("grid-home-editor.png")
                 compose.onNodeWithText("Done").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
                 ui.setOrientation(ScreenOrientation.Landscape)
@@ -83,7 +86,8 @@ class GridScreenTest {
                 }
                 compose.onNodeWithTag("search-overflow-menu").performClick()
                 compose.onNodeWithTag("edit-grid-menu").performClick()
-                compose.waitUntil(5000) { compose.onAllNodesWithTag("grid-resize-widget-${sampleWidget.id}").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("grid-item-widget-${sampleWidget.id}").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNode(hasTestTag("grid-item-widget-${sampleWidget.id}") and hasAnyAncestor(hasTestTag("grid-page-home"))).performScrollTo().performTouchInput { longClick() }
                 compose.onNodeWithTag("grid-resize-widget-${sampleWidget.id}").performScrollTo().performClick()
                 compose.onNodeWithTag("grid-edit-w").performTextReplacement("4")
                 compose.onNodeWithTag("grid-edit-h").performTextReplacement("4")

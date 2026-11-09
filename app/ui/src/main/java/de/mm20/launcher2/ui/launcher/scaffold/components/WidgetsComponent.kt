@@ -94,7 +94,7 @@ internal class WidgetsComponent(
 
         val scope = rememberCoroutineScope()
         LaunchedEffect(GridEditing.target) {
-            if (GridEditing.target == "widgets-${target.id}") { state.lock(hideSearchBar = false); scrollState.scrollTo(0) }
+            if (GridEditing.target == "widgets-${target.id}") { state.lock(hideSearchBar = false) }
             else if (GridEditing.target == null && !editMode) state.unlock()
         }
         val topPadding by animateDpAsState(if (editMode) 64.dp else 0.dp)

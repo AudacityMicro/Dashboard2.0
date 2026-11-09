@@ -32,6 +32,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 
+object DashboardActions { var addTask by mutableStateOf(false) }
+
 @Composable
 fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = rememberScrollState(),
     scrollingEnabled: Boolean = true, includeNativeWidgets: Boolean = true) {
@@ -45,6 +47,7 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
     var board by remember { mutableStateOf(DashboardSnapshot(emptyList(), emptyList(), "", 0)) }
     var error by remember { mutableStateOf("") }
     var adding by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(DashboardActions.addTask) { if (DashboardActions.addTask) { adding = true; DashboardActions.addTask = false } }
     var draft by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     var showCompleted by rememberSaveable { mutableStateOf(false) }
@@ -78,7 +81,6 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
     LaunchedEffect(editing, pendingNativeEnable) {
         if (!editing && pendingNativeEnable) { uiSettings.setHomeScreenWidgets(true); pendingNativeEnable = false }
     }
-    LaunchedEffect(editing) { if (editing) scroll.scrollTo(0) }
     val tiles = listOf(
         GridTile("setup", "Setup", rows = 8, visible = loaded && !board.setupHidden) { tileModifier ->
             LauncherCard(tileModifier.testTag("agent-setup")) {
@@ -125,6 +127,7 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
             LauncherCard(tileModifier.testTag("todo-list")) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { adding = true }, modifier = Modifier.testTag("add-task-widget")) { Text("Add task", style = MaterialTheme.typography.labelSmall) }
                         Spacer(Modifier.weight(1f))
                         val completed = board.tasks.count { it.completed }
                         if (completed > 0) TextButton(onClick = { showCompleted = !showCompleted },
@@ -166,7 +169,7 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
             if (loaded && native.loaded) ProfiledWidgetGrid("home", tiles, editing = editing, onAdd = native.add,
                 onPlaced = { if (it.startsWith("widget-") && !includeNativeWidgets) pendingNativeEnable = true })
         }
-        CaptureDock(capture, Modifier.fillMaxWidth().padding(vertical = 8.dp), onAddTask = { adding = true })
+        CaptureDock(capture, Modifier.fillMaxWidth().padding(vertical = 8.dp))
     }
     InlineCaptureSheet(capture)
     if (adding) AlertDialog(

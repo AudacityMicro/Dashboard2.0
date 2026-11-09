@@ -281,6 +281,13 @@ class DashboardHomeTest {
                     androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Copy agent setup prompt"))
                         .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isEnabled()))
                     val show = androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Show setup on home screen"))
+                    var setupSwitch: android.widget.Switch? = null
+                    show.check { view, failure -> if (failure != null) throw failure; setupSwitch = view as android.widget.Switch }
+                    compose.waitUntil(5000) {
+                        var ready = false
+                        instrumentation.runOnMainSync { ready = setupSwitch?.isEnabled == true }
+                        ready
+                    }
                     show.check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isNotChecked()))
                         .perform(androidx.test.espresso.action.ViewActions.scrollTo(), androidx.test.espresso.action.ViewActions.click())
                     compose.waitUntil(5000) { DashboardStore(context).use { !it.snapshot().setupHidden } }
@@ -329,7 +336,9 @@ class DashboardHomeTest {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-text").fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithTag("agent-updates").assertDoesNotExist()
-                compose.onNodeWithTag("add-task-dock").performClick()
+                compose.onNodeWithTag("add-task-dock").assertDoesNotExist()
+                compose.onNodeWithTag("search-overflow-menu").performClick()
+                compose.onNodeWithTag("add-task-menu").performClick()
                 compose.onNodeWithTag("new-task-title").performTextInput(title)
                 compose.onNodeWithText("Save task").performClick()
                 compose.waitUntil(5000) {
