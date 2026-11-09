@@ -55,4 +55,45 @@ class WidgetGridLayoutTest {
         assertEquals(GridCell(4, 6, 1, 1), cell.resized(99, 99, true, true, 8))
         assertEquals(GridCell(2, 3, 6, 32), cell.resized(99, 99, false, false, 8))
     }
+    @Test fun contentHeightCapsGrowthAndReflowsOnlyAffectedColumns() {
+        val base = WidgetGridLayout(4).place("updates", GridCell(0, 0, 2, 4))
+            .place("side", GridCell(2, 0, 2, 3)).place("tasks", GridCell(0, 5, 2, 3))
+            .copy(autoHeights = mapOf("updates" to GridAutoHeight(true, 6)))
+        val grown = base.withContentHeights(mapOf("updates" to 100))
+        assertEquals(6, grown.cells.getValue("updates").height)
+        assertEquals(7, grown.cells.getValue("tasks").y) // Preserve the one-row manual gap.
+        assertEquals(base.cells["side"], grown.cells["side"])
+        val shrunk = base.withContentHeights(mapOf("updates" to 1))
+        assertEquals(2, shrunk.cells.getValue("tasks").y)
+        assertEquals(4, base.cells.getValue("updates").height) // Saved anchors never change.
+        noOverlap(grown); noOverlap(shrunk)
+    }
+    @Test fun growthAndShrinkageCarryThroughNearestPredecessors() {
+        val base = WidgetGridLayout(4).place("a", GridCell(0, 0, 4, 4))
+            .place("b", GridCell(0, 4, 4, 4)).place("c", GridCell(0, 8, 4, 2))
+            .copy(autoHeights = mapOf("a" to GridAutoHeight(true, 8), "b" to GridAutoHeight(true, 8)))
+        val display = base.withContentHeights(mapOf("a" to 8, "b" to 2))
+        assertEquals(8, display.cells.getValue("b").y)
+        assertEquals(10, display.cells.getValue("c").y)
+        assertEquals(base.cells, base.withContentHeights(mapOf("a" to 4, "b" to 4)).cells)
+        noOverlap(display)
+    }
+    @Test fun fullCanvasFallsBackToSafeCappedViewportsWithoutLosingTiles() {
+        val base = WidgetGridLayout(4).place("a", GridCell(0, 0, 4, 2))
+            .place("b", GridCell(0, 500, 4, 12))
+            .copy(autoHeights = mapOf("a" to GridAutoHeight(true, 32)))
+        val display = base.withContentHeights(mapOf("a" to 32))
+        assertEquals(base.cells.keys, display.cells.keys)
+        assertTrue(display.cells.values.all { it.y + it.height <= 512 })
+        assertEquals(500, display.cells.getValue("b").y)
+        noOverlap(display)
+    }
+    @Test fun fixedModeIgnoresMeasurementsAndGridChangesKeepAutomaticPreferences() {
+        val base = WidgetGridLayout(4).place("a", GridCell(0, 0, 4, 3))
+            .copy(autoHeights = mapOf("a" to GridAutoHeight(false, 6)))
+        assertEquals(base, base.withContentHeights(mapOf("a" to 20)))
+        assertEquals(base.autoHeights, base.withColumns(2).autoHeights)
+        for (invalid in listOf(0, 33)) try { GridAutoHeight(true, invalid); fail("Invalid maximum accepted") }
+            catch (_: IllegalArgumentException) { }
+    }
 }

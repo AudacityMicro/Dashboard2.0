@@ -76,9 +76,9 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
         if (!editing && pendingNativeEnable) { uiSettings.setHomeScreenWidgets(true); pendingNativeEnable = false }
     }
     val tiles = listOf(
-        GridTile("setup", "Setup", rows = 8, visible = loaded && !board.setupHidden) { tileModifier ->
+        GridTile("setup", "Setup", rows = 8, visible = loaded && !board.setupHidden, supportsAutoHeight = true) { tileModifier ->
             LauncherCard(tileModifier.testTag("agent-setup")) {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).reportGridContentHeight().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(if (board.instructionsFileId.isBlank())
                         "Connect Google Drive from the menu, then copy this prompt to your agent. It explains how to use your captures, updates and tasks."
                         else "Copy this prompt to your agent. It includes your Drive file IDs and asks your agent to check the instructions file for current guidance.")
@@ -106,9 +106,9 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                 }
             }
         },
-        GridTile("updates", "Updates", rows = 4, visible = board.updates.isNotEmpty()) { tileModifier ->
+        GridTile("updates", "Updates", rows = 4, visible = board.updates.isNotEmpty(), supportsAutoHeight = true) { tileModifier ->
             LauncherCard(tileModifier.testTag("agent-updates")) {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).reportGridContentHeight().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     board.updates.forEach { update ->
                         Text(update.title, style = MaterialTheme.typography.titleMedium)
                         if (update.body.isNotEmpty()) Text(update.body, style = MaterialTheme.typography.bodyMedium)
@@ -117,9 +117,9 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                 }
             }
         },
-        GridTile("tasks", "Tasks", rows = 5, visible = board.tasks.isNotEmpty()) { tileModifier ->
+        GridTile("tasks", "Tasks", rows = 5, visible = board.tasks.isNotEmpty(), supportsAutoHeight = true) { tileModifier ->
             LauncherCard(tileModifier.testTag("todo-list")) {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).reportGridContentHeight().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Spacer(Modifier.weight(1f))
                         val completed = board.tasks.count { it.completed }
@@ -149,9 +149,9 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                 }
             }
         },
-        GridTile("connection", "Connection", rows = 2, visible = board.connectionIssue.isNotEmpty()) { tileModifier ->
+        GridTile("connection", "Connection", rows = 2, visible = board.connectionIssue.isNotEmpty(), supportsAutoHeight = true) { tileModifier ->
             LauncherCard(tileModifier.testTag("drive-disconnected")) {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).reportGridContentHeight().padding(12.dp)) {
                     Text(board.connectionIssue.ifEmpty { "Drive connected" }, style = MaterialTheme.typography.labelMedium)
                 }
             }
