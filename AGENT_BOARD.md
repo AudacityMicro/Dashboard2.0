@@ -15,7 +15,7 @@ read the guide. The prompt asks the agent to agree a checking frequency and conf
 a supported schedule. Copying it does not itself start monitoring. User instructions
 and agent safety rules still take precedence over file contents.
 
-### Starter guide version 2
+### Starter guide version 3
 
 The starter prompt explicitly authorizes the agent to maintain its own guide in
 place, merge user changes, keep a recoverable prior version and record revisions.
@@ -33,7 +33,7 @@ commitments, authorization boundaries and deduplication history; larger ledgers 
 indexed archives rather than silently dropping records. External actions require
 reconciliation after an interruption, rather than assuming exactly-once execution.
 
-The version 2 prompt asks an agent receiving an older guide to merge the new guidance
+The version 3 prompt asks an agent receiving an older guide to merge the new guidance
 into that same file while preserving customizations. The phone still never overwrites
 an existing guide. Existing installations must copy the updated setup prompt to their
 agent to apply this change; installing an APK alone does not modify an old Drive guide.
@@ -41,6 +41,34 @@ agent to apply this change; installing an APK alone does not modify an old Drive
 The canonical starter text is `AgentSetup.instructions` in
 `data/dashboard/src/main/java/de/mm20/launcher2/dashboard/AgentSetup.kt`, shared by
 the copied setup prompt and the initial Drive upload.
+
+### Digest and archive provided notes
+
+The version 3 guide authorizes the agent to manage Dashboard captures and other files
+the user explicitly provides for this workflow. It reads/interprets the original,
+merges useful information into `Dashboard-agent-memory.md` (the context document),
+and verifies context/state/task writes before moving originals. Unsupported or
+unreadable captures stay in the inbox with a recorded blocker.
+
+The agent creates a private `Dashboard Archive` folder and records its exact ID.
+It archives each payload/manifest pair together by moving the existing files;
+contents, IDs, ownership, permissions and app metadata are preserved. Partial moves
+are reconciled by ID after interruption. Processed IDs/fingerprints and digest/task
+references prevent repeated summaries and assignments. Unrelated Drive files and
+the board/instructions/context/state files are outside the capture-archive lifecycle.
+Moving files by ID does not change the phone's locally stored original or sync IDs.
+
+Archive retention is **at least 30 days after verified ingestion and archiving**.
+The agent records UTC `archivedAt`/`reviewAfter` timestamps and reviews notes on the
+next configured run once due. Sources supporting active work or important reference
+material are retained longer with a reason and next review date. Irrelevant sources
+can be proposed for batched cleanup; age alone does not authorize trashing/purging.
+Context compaction preserves commitments and source/deduplication references.
+
+This is agent behavior through its own authorized tools, not launcher-side archiving
+or a retention worker. Existing Drive guides remain untouched until the agent merges
+the updated setup prompt. Archive reviews run only through an actually configured
+agent schedule, or on demand if scheduling is unavailable.
 
 The guide uses the same durable preallocated-ID/reconciliation mechanism as captures.
 It is included in setup prompts only after remote creation or reconciliation succeeds.

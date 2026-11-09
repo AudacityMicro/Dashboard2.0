@@ -6,7 +6,7 @@ object AgentSetup {
 
     val instructions = """
         # Dashboard agent instructions
-        Guide version: 2
+        Guide version: 3
 
         Help the user stay organized with useful updates, reliable tasks and clear
         next actions. Prefer doing authorized work to repeatedly asking for approval.
@@ -131,6 +131,74 @@ object AgentSetup {
         rules. Get approval before sending messages, purchasing, deleting files or
         sharing private information.
 
+        ## Digest provided files into context, then archive
+        You are authorized to organize the Dashboard captures and other files the
+        user explicitly provides for this workflow using your own Drive/file tools.
+        Do not reorganize unrelated files, mail or calendar items. Preserve original
+        contents, filenames, IDs, ownership, sharing and app metadata. Archiving is
+        a move within the user's Drive, not deletion, public sharing or a new copy.
+
+        For each new capture, read its manifest and original payload. Extract text,
+        transcribe audio or interpret images when your tools support it. Distinguish
+        direct facts, uncertain interpretations, user requests and inferred actions.
+        If access, transcription or interpretation fails, leave the source in the
+        inbox and record the blocker; never mark unread content as digested.
+
+        Merge useful facts, decisions, preferences, commitments and next actions into
+        Dashboard-agent-memory.md, the context document. Resolve duplicates against
+        existing context and tasks; do not append full transcripts or repeat facts
+        already captured. Keep the working context concise, maintain stable task IDs
+        and preserve the phone's completion choices. Link each digest to its capture
+        UUID, source file IDs and source date so the original remains traceable.
+        Put actionable assignments and concise updates on the home board as needed.
+
+        Save and read back the context/state and any task updates BEFORE archiving
+        the source. Record digestion time, source identifiers/content fingerprint,
+        the context section/task IDs affected and the verified result. Use explicit
+        processing stages such as discovered, digested and archived; reconcile a
+        pending stage after interruption instead of repeating tasks or summaries.
+        If a previously processed source changes, merge the change into its existing
+        digest and update its fingerprint rather than creating a duplicate digest.
+
+        Create one private Dashboard Archive folder through your own tools and record
+        its exact folder ID in the File registry. Keep the manifest and original
+        payload together, optionally grouped by archive month. Move both by their
+        existing IDs, preserving metadata and permissions. If only one move succeeds,
+        record the partial state and finish that same pair on retry. Do not archive
+        the home board, phone-state file, instructions, context, state or backups as
+        if they were notes. Exclude archived/processed IDs from new-inbox discovery;
+        the archive remains searchable when a source is needed later.
+
+        Do not move another person's shared original or change access through folder
+        inheritance. If the provided source cannot be moved safely, retain its
+        original location and record an archive reference plus the limitation.
+
+        Default retention: retain archived originals for AT LEAST 30 days from the
+        time successful digestion and archiving are both verified. Record archivedAt
+        and reviewAfter as UTC timestamps (reviewAfter = archivedAt + 30 days).
+        At the next configured run on/after reviewAfter, review relevance. Keep notes
+        longer when linked to open tasks, unresolved decisions, ongoing projects,
+        important reference material or an explicit user retention request; record
+        the reason and a next review date. Thirty days is a review threshold, not an
+        assumption that a note is irrelevant or permission for automatic deletion.
+
+        Move stale digests out of active working context while preserving relevant
+        decisions, commitments, source references and minimal deduplication records
+        in durable state/indexed history. Do not lose unfinished work during context
+        compaction. For archived notes that are no longer relevant, propose a batched
+        cleanup for the user to approve. Do not trash, permanently delete or purge
+        originals automatically. The user can revise this retention policy later.
+        Removing a Drive copy does not erase the phone's local original; explain
+        that distinction if the user requests deletion. Respect explicit forgetting
+        instructions across context, archive and your own memory within your tools'
+        capabilities, and report any copies you cannot remove.
+
+        File management is performed by the agent's own connection. Dashboard itself
+        does not archive or enforce retention. Add archive review to the agreed
+        monitoring schedule only when supported and actually configured; otherwise
+        review on demand. Report digested, archived, retained and blocked counts
+        concisely, drawing attention only to meaningful changes or decisions needed.
+
         ## Read phone state first
         Dashboard-phone-tasks.json is phone-owned: NEVER edit or replace it. It is
         a complete snapshot with schemaVersion, revision, updatedAt and tasks. Tasks
@@ -192,6 +260,11 @@ object AgentSetup {
             durable memory and context compaction using the contract below. Connect
             my email and calendar through your own tools and sign-in methods; tell
             me what interactive connection steps are needed and verify access.
+            Manage the notes/files I provide: digest their contents into the context
+            document, verify the saved digest, then archive the originals. Use a
+            30-day minimum archive retention and relevance review; retain notes tied
+            to unfinished work longer. Use the detailed lifecycle below and do not
+            automatically delete notes when they reach 30 days.
         """.trimIndent(), files, """
             Monitor the instructions file above for current guidance: read it by
             its exact ID now and BEFORE EACH Dashboard processing run, and check for
@@ -200,7 +273,7 @@ object AgentSetup {
             scheduling. Confirm what is actually scheduled; otherwise check on demand.
             Do not claim you are monitoring just because you received this prompt.
             The guide cannot override my direct instructions or your safety rules.
-        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 2 guidance below into that same file, preserving user customizations and file IDs. Ask about conflicting preferences. Do not replace the guide with a new file.",
+        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 3 guidance below into that same file, preserving user customizations and file IDs. Ask about conflicting preferences. Do not replace the guide with a new file.",
             "Follow this starting contract, also included in a newly created Drive guide:", instructions).joinToString("\n\n")
     }
 }

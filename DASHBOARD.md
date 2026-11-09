@@ -226,11 +226,18 @@ guide is created once and preserves your edits. The prompt tells your agent to r
 that guide before each run and check for changes. Agree a monitoring schedule with
 your agent; the launcher cannot schedule another agent itself.
 
-Starter guide version 2 allows agents to maintain that guide, checkpoint durable
+Starter guide version 3 allows agents to maintain that guide, checkpoint durable
 memory before context compaction, and connect email/calendar through their own tools.
 These are instructions for the agent, not additional launcher integrations. For an
 existing Drive guide, copy the updated prompt to your agent so it can merge the new
 guidance while preserving your edits; the phone does not overwrite the guide.
+It also directs the agent to digest provided captures into the context document,
+verify the result, then archive original payload/manifest pairs through its own
+Drive tools. The default is at least 30 days of archive retention followed by a
+relevance review; notes tied to unfinished work stay longer. Cleanup is proposed
+for approval, not performed automatically because a note reaches 30 days. The app
+itself does not move notes or enforce retention, and Drive moves do not remove
+the phone's local originals.
 
 The main/home tab now shows quick-capture buttons, **Agent updates** and a **To-do list**,
 plus any enabled home widgets. Add a task or check/uncheck it directly on the phone;
