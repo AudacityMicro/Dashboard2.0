@@ -32,8 +32,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-object DashboardActions { var addTask by mutableStateOf(false) }
-
 @Composable
 fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = rememberScrollState(),
     scrollingEnabled: Boolean = true, includeNativeWidgets: Boolean = true) {
@@ -46,10 +44,6 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
     })
     var board by remember { mutableStateOf(DashboardSnapshot(emptyList(), emptyList(), "", 0)) }
     var error by remember { mutableStateOf("") }
-    var adding by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(DashboardActions.addTask) { if (DashboardActions.addTask) { adding = true; DashboardActions.addTask = false } }
-    var draft by rememberSaveable { mutableStateOf("") }
-    var saving by remember { mutableStateOf(false) }
     var showCompleted by rememberSaveable { mutableStateOf(false) }
     var copiedSetup by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
@@ -127,7 +121,6 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
             LauncherCard(tileModifier.testTag("todo-list")) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { adding = true }, modifier = Modifier.testTag("add-task-widget")) { Text("Add task", style = MaterialTheme.typography.labelSmall) }
                         Spacer(Modifier.weight(1f))
                         val completed = board.tasks.count { it.completed }
                         if (completed > 0) TextButton(onClick = { showCompleted = !showCompleted },
@@ -172,25 +165,4 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
         CaptureDock(capture, Modifier.fillMaxWidth().padding(vertical = 8.dp))
     }
     InlineCaptureSheet(capture)
-    if (adding) AlertDialog(
-        onDismissRequest = { adding = false }, title = { Text("New task") },
-        text = { Column {
-            OutlinedTextField(value = draft, onValueChange = { if (it.length <= 300) draft = it },
-                label = { Text("Task") }, modifier = Modifier.testTag("new-task-title"), singleLine = true)
-            if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
-        } },
-        confirmButton = { TextButton(enabled = draft.isNotBlank() && !saving, onClick = {
-            val title = draft
-            saving = true
-            // Close only after the durable write succeeds; retain draft on a failure.
-            scope.launch {
-                try {
-                    withContext(Dispatchers.IO) { DashboardStore(app).use { it.addTask(title) } }
-                    draft = ""; adding = false; reload(); sync(); error = ""
-                } catch (_: Exception) { error = "Could not save task. Check available storage." }
-                finally { saving = false }
-            }
-        }) { Text("Save task") } },
-        dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel") } }
-    )
 }

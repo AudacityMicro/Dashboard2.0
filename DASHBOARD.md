@@ -415,7 +415,7 @@ See [AGENT_BOARD.md](AGENT_BOARD.md) for the file contract and a sample board. U
 **Refresh dashboard** in the search bar’s three-dot menu to request an update. Sync also runs when the launcher resumes and
 through the existing periodic worker (about 15 minutes, subject to Android restrictions).
 Cached information stays visible offline without routine connection commentary.
-**Add task** is available in the task widget and the search bar’s three-dot menu. The bottom dock contains only Text, Voice, Photo and Upload. Completed tasks stay hidden by default;
+Task creation buttons are omitted from the home screen and search menu. Send a text or voice capture to your agent to request a new task; existing tasks can still be checked off on the phone. The bottom dock contains only Text, Voice, Photo and Upload, without an idle recording hint. Completed tasks stay hidden by default;
 the small **N done** control inside the task widget toggles them.
 Phone-added tasks and explicit completion overrides survive all incoming refreshes.
 Stable task IDs identify the same task; give a genuinely new task a new ID.

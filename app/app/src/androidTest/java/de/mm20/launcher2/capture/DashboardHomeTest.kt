@@ -329,36 +329,35 @@ class DashboardHomeTest {
             }
         }
     }
-    @Test fun mainHomeContainsAgentUpdatesAndSavesAndChecksOffATask() {
+    @Test fun mainHomeOmitsCreationControlsAndStillChecksOffATask() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val title = "Home task " + java.util.UUID.randomUUID()
-        var id: String? = null
+        val id = DashboardStore(context).use { it.addTask(title) }
         try {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-text").fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithTag("agent-updates").assertDoesNotExist()
                 compose.onNodeWithTag("add-task-dock").assertDoesNotExist()
                 compose.onNodeWithTag("search-overflow-menu").performClick()
-                compose.onNodeWithTag("add-task-menu").performClick()
-                compose.onNodeWithTag("new-task-title").performTextInput(title)
-                compose.onNodeWithText("Save task").performClick()
-                compose.waitUntil(5000) {
-                    id = DashboardStore(context).use { store -> store.snapshot().tasks.find { task -> task.title == title }?.id }
-                    id != null
-                }
+                compose.onNodeWithTag("add-task-menu").assertDoesNotExist()
+                compose.onNodeWithText("Add task").assertDoesNotExist()
+                androidx.test.espresso.Espresso.pressBack()
+                compose.onNodeWithTag("add-task-widget").assertDoesNotExist()
+                compose.onNodeWithTag("capture-hold-hint").assertDoesNotExist()
+                compose.onNodeWithText("Hold Voice to record").assertDoesNotExist()
                 compose.onNodeWithTag("todo-list").performScrollTo()
-                compose.onNodeWithTag("task-check-${requireNotNull(id)}").performScrollTo().performClick()
+                compose.onNodeWithTag("task-check-${id}").performScrollTo().performClick()
                 compose.waitUntil(5000) { DashboardStore(context).use { store -> store.snapshot().tasks.find { task -> task.id == id }?.completed == true } }
                 DashboardStore(context).use { store -> assertTrue(store.snapshot().tasks.single { task -> task.id == id }.completed) }
                 compose.waitUntil(5000) { compose.onAllNodesWithTag("toggle-completed").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("task-check-${requireNotNull(id)}").assertDoesNotExist()
+                compose.onNodeWithTag("task-check-${id}").assertDoesNotExist()
                 compose.onNodeWithTag("toggle-completed").performScrollTo().performClick()
-                compose.onNodeWithTag("task-check-${requireNotNull(id)}").assertExists()
+                compose.onNodeWithTag("task-check-${id}").assertExists()
                 compose.onNodeWithTag("toggle-completed").performClick()
-                compose.onNodeWithTag("task-check-${requireNotNull(id)}").assertDoesNotExist()
+                compose.onNodeWithTag("task-check-${id}").assertDoesNotExist()
             }
         } finally {
-            id?.let { saved -> DashboardStore(context).use { store -> store.writableDatabase.delete("local_tasks", "id=?", arrayOf(saved)) } }
+            DashboardStore(context).use { store -> store.writableDatabase.delete("local_tasks", "id=?", arrayOf(id)) }
         }
     }
     @Test fun homeCaptureSavesTextInlineAndPreservesDraftAcrossRecreation() {

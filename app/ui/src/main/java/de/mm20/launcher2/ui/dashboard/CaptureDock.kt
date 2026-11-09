@@ -44,9 +44,9 @@ fun HoldToRecordButton(model: InlineCaptureViewModel, modifier: Modifier = Modif
 fun CaptureDock(model: InlineCaptureViewModel, modifier: Modifier = Modifier) {
     LauncherCard(modifier.testTag("capture-actions")) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(if (model.recording) "Recording… release to save" else "Hold Voice to record",
+            if (model.recording) Text("Recording… release to save",
                 style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.testTag(if (model.recording) "capture-hold-recording" else "capture-hold-hint"))
+                modifier = Modifier.testTag("capture-hold-recording"))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(onClick = { model.open(InlineCaptureMode.Text) }, modifier = Modifier.weight(1f).testTag("capture-text"),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)) { Text("Text") }
