@@ -96,4 +96,18 @@ class WidgetGridLayoutTest {
         for (invalid in listOf(0, 33)) try { GridAutoHeight(true, invalid); fail("Invalid maximum accepted") }
             catch (_: IllegalArgumentException) { }
     }
+    @Test fun movingAShiftedTileAboveItsPredecessorUsesTheRequestedVisibleRow() {
+        val base = WidgetGridLayout(4).place("updates", GridCell(0, 0, 4, 4))
+            .place("tasks", GridCell(0, 4, 4, 5))
+            .copy(autoHeights = mapOf("updates" to GridAutoHeight(true, 3), "tasks" to GridAutoHeight(true, 4)))
+        val display = base.withContentHeights(mapOf("updates" to 3, "tasks" to 4))
+        assertEquals(3, display.cells.getValue("tasks").y)
+        val moved = base.placeDisplayed("tasks", display.cells.getValue("tasks").copy(y = 0), display)
+        val after = moved.withContentHeights(mapOf("updates" to 3, "tasks" to 4))
+        assertEquals(0, moved.cells.getValue("tasks").y)
+        assertEquals(0, after.cells.getValue("tasks").y)
+        assertEquals(4, after.cells.getValue("updates").y)
+        assertEquals(base.autoHeights, moved.autoHeights)
+        noOverlap(after)
+    }
 }

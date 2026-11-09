@@ -65,6 +65,12 @@ data class WidgetGridLayout(val columns: Int, val rowDp: Int = 56,
         }
         return copy(cells = result)
     }
+    /** Explicit geometry edits anchor the visible arrangement, so reordering shifted tiles
+     * lands at the requested row rather than applying the old content offset a second time. */
+    fun placeDisplayed(id: String, desired: GridCell, display: WidgetGridLayout): WidgetGridLayout {
+        require(display.columns == columns && display.rowDp == rowDp)
+        return copy(cells = cells.mapValues { (key, original) -> display.cells[key] ?: original }).place(id, desired)
+    }
     /** A moved/resized item takes its requested space; intersecting items move down without overlap. */
     fun place(id: String, desired: GridCell): WidgetGridLayout {
         require(columns in 2..12 && rowDp in 40..120)
