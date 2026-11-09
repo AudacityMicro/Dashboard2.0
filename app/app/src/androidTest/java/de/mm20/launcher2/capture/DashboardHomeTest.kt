@@ -122,7 +122,8 @@ class DashboardHomeTest {
     }
     @Test fun voiceStartsOnPointerDownAndSavesOnceOnRelease() = assertHeldCapture(false)
     @Test fun cancelledVoiceGestureStillSavesExactlyOnce() = assertHeldCapture(true)
-    private fun assertHeldCapture(cancelGesture: Boolean) {
+    @Test fun voiceRemainsActiveOutsideButtonAndSavesOnlyAfterFingerLifts() = assertHeldCapture(false, moveOutside = true)
+    private fun assertHeldCapture(cancelGesture: Boolean, moveOutside: Boolean = false) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, android.Manifest.permission.RECORD_AUDIO)
@@ -131,13 +132,37 @@ class DashboardHomeTest {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-voice").fetchSemanticsNodes().isNotEmpty() }
                 val button = compose.onNodeWithTag("capture-voice")
+                val idle = button.getUnclippedBoundsInRoot()
                 button.performTouchInput { down(center) }
                 compose.waitUntil(5000) { compose.onAllNodesWithTag("capture-hold-recording").fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithTag("inline-capture-sheet").assertDoesNotExist()
+                compose.waitUntil(5000) {
+                    val active = button.getUnclippedBoundsInRoot()
+                    active.bottom - active.top > (idle.bottom - idle.top) * 2f &&
+                        active.right - active.left > (idle.right - idle.left) * 1.5f
+                }
+                if (moveOutside) {
+                    // Keep the same pointer down while leaving each edge of the enlarged button.
+                    val root = compose.onRoot()
+                    val rootBounds = root.fetchSemanticsNode().boundsInRoot
+                    val bounds = button.fetchSemanticsNode().boundsInRoot
+                    val points = listOf(
+                        androidx.compose.ui.geometry.Offset(bounds.center.x, bounds.top - 140f),
+                        androidx.compose.ui.geometry.Offset(2f, bounds.center.y),
+                        androidx.compose.ui.geometry.Offset(rootBounds.right - 2f, bounds.center.y),
+                        androidx.compose.ui.geometry.Offset(bounds.center.x, minOf(bounds.bottom + 12f, rootBounds.bottom - 2f)))
+                    for (point in points) {
+                        root.performTouchInput { moveTo(point, delayMillis = 200) }
+                        compose.onNodeWithTag("capture-hold-recording").assertExists()
+                        compose.onNodeWithTag("inline-capture-saved").assertDoesNotExist()
+                        assertEquals(before, InboxStore(context).use { store -> store.list().map { it.id }.toSet() })
+                    }
+                }
                 Thread.sleep(1600) // MediaRecorder needs actual elapsed time, not the Compose test clock.
                 assertEquals(before, InboxStore(context).use { store -> store.list().map { capture -> capture.id }.toSet() })
                 screenshot("dashboard-hold-recording.png")
-                button.performTouchInput { if (cancelGesture) cancel() else up() }
+                if (moveOutside) compose.onRoot().performTouchInput { up() }
+                else button.performTouchInput { if (cancelGesture) cancel() else up() }
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("inline-capture-saved").fetchSemanticsNodes().isNotEmpty() }
                 InboxStore(context).use { store ->
                     val added = store.list().filter { it.id !in before }
