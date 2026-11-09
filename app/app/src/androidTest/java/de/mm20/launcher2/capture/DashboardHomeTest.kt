@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.toPixelMap
 import de.mm20.launcher2.ui.theme.transparency.LocalTransparencyScheme
 import de.mm20.launcher2.ui.theme.transparency.TransparencyScheme
 import de.mm20.launcher2.ui.dashboard.DashboardPanel
+import de.mm20.launcher2.ui.base.ProvideCompositionLocals
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -70,14 +71,18 @@ class DashboardHomeTest {
     @Test fun dashboardCardsFollowTransparencyAndDockStaysBelowScrollingContent() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val oldHidden = DashboardStore(context).use { it.meta("setupHidden") }
+        val oldBoard = DashboardStore(context).use { it.meta("board") }
         val opacity = androidx.compose.runtime.mutableFloatStateOf(0f)
         try {
-            DashboardStore(context).use { it.setMeta("setupHidden", "false") }
+            DashboardStore(context).use {
+                it.setMeta("setupHidden", "false")
+                it.acceptBoard("""{"schemaVersion":1,"updates":[{"id":"grid-test","title":"A useful note","body":"Prepare for today"}],"tasks":[{"id":"grid-task","title":"A task","completed":false}]}""")
+            }
             ActivityScenario.launch(LauncherActivity::class.java).use { home ->
                 home.onActivity { activity -> activity.setContent {
                     MaterialTheme {
                         CompositionLocalProvider(LocalTransparencyScheme provides TransparencyScheme(surface = opacity.floatValue)) {
-                            Box(Modifier.fillMaxSize().background(Color.Blue)) { DashboardPanel() }
+                            ProvideCompositionLocals { Box(Modifier.fillMaxSize().background(Color.Blue)) { DashboardPanel() } }
                         }
                     }
                 } }
@@ -98,7 +103,7 @@ class DashboardHomeTest {
                 assertNotEquals(Color.Blue, topPixel("agent-updates"))
                 screenshot("dashboard-transparent-dock.png")
             }
-        } finally { DashboardStore(context).use { it.setMeta("setupHidden", oldHidden) } }
+        } finally { DashboardStore(context).use { it.setMeta("setupHidden", oldHidden); it.setMeta("board", oldBoard) } }
     }
     @Test fun searchOverflowOpensLauncherUpdater() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -255,7 +260,8 @@ class DashboardHomeTest {
             DashboardStore(context).use { it.setMeta("setupHidden", "false") }
             ActivityScenario.launch(LauncherActivity::class.java).use { home ->
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("hide-dashboard-setup").performScrollTo().performClick()
+                compose.onNodeWithTag("agent-setup").performScrollTo()
+                compose.onNodeWithTag("hide-dashboard-setup").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
                 compose.waitUntil(5000) {
                     DashboardStore(context).use { it.snapshot().setupHidden } &&
                         compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isEmpty()
@@ -265,7 +271,7 @@ class DashboardHomeTest {
                 compose.onNodeWithTag("agent-setup").assertDoesNotExist()
                 compose.onNodeWithText("Copy agent file IDs").assertDoesNotExist()
                 compose.onNodeWithTag("capture-actions").assertExists()
-                compose.onNodeWithTag("todo-list").assertExists()
+                compose.onNodeWithTag("todo-list").assertDoesNotExist()
                 val instrumentation = InstrumentationRegistry.getInstrumentation()
                 val monitor = instrumentation.addMonitor(CaptureActivity::class.java.name, null, false)
                 try {
@@ -290,7 +296,8 @@ class DashboardHomeTest {
         try {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("check-dashboard-updates").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("check-dashboard-updates").performScrollTo().performClick()
+                compose.onNodeWithTag("agent-setup").performScrollTo()
+                compose.onNodeWithTag("check-dashboard-updates").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
                 val opened = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
                 assertNotNull(opened)
                 androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Tap Check now to contact GitHub."))
@@ -303,7 +310,7 @@ class DashboardHomeTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         ActivityScenario.launch(LauncherActivity::class.java).use {
             compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("copy-agent-setup").performScrollTo().performClick()
+            compose.onNodeWithTag("copy-agent-setup").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
             compose.onNodeWithTag("agent-setup-copied").assertExists()
             compose.runOnIdle {
                 val clip = context.getSystemService(android.content.ClipboardManager::class.java).primaryClip
@@ -320,8 +327,8 @@ class DashboardHomeTest {
         var id: String? = null
         try {
             ActivityScenario.launch(LauncherActivity::class.java).use {
-                compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-updates").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("agent-updates").assertExists()
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-text").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("agent-updates").assertDoesNotExist()
                 compose.onNodeWithTag("add-task-dock").performClick()
                 compose.onNodeWithTag("new-task-title").performTextInput(title)
                 compose.onNodeWithText("Save task").performClick()
@@ -329,6 +336,7 @@ class DashboardHomeTest {
                     id = DashboardStore(context).use { store -> store.snapshot().tasks.find { task -> task.title == title }?.id }
                     id != null
                 }
+                compose.onNodeWithTag("todo-list").performScrollTo()
                 compose.onNodeWithTag("task-check-${requireNotNull(id)}").performScrollTo().performClick()
                 compose.waitUntil(5000) { DashboardStore(context).use { store -> store.snapshot().tasks.find { task -> task.id == id }?.completed == true } }
                 DashboardStore(context).use { store -> assertTrue(store.snapshot().tasks.single { task -> task.id == id }.completed) }

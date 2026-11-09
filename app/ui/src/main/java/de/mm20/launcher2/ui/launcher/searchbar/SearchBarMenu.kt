@@ -106,6 +106,11 @@ fun RowScope.SearchBarMenu(
                     }
                 )
                 DropdownMenuItem(
+                    modifier = Modifier.testTag("edit-grid-menu"), shape = MenuDefaults.middleItemShape,
+                    onClick = { showOverflowMenu = false; de.mm20.launcher2.ui.dashboard.GridEditing.active = true },
+                    text = { Text("Edit layout") },
+                )
+                DropdownMenuItem(
                     modifier = Modifier.testTag("refresh-dashboard-menu"), shape = MenuDefaults.middleItemShape,
                     onClick = {
                         showOverflowMenu = false

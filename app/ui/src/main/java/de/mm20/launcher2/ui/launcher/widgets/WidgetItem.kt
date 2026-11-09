@@ -9,6 +9,8 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
@@ -52,6 +54,7 @@ fun WidgetItem(
     widget: Widget,
     modifier: Modifier = Modifier,
     editMode: Boolean = false,
+    gridMode: Boolean = false,
     onWidgetAdd: (widget: Widget, offset: Int) -> Unit = { _, _ -> },
     onWidgetUpdate: (widget: Widget) -> Unit = {},
     onWidgetRemove: () -> Unit = {},
@@ -75,13 +78,13 @@ fun WidgetItem(
         elevation = elevation,
         backgroundOpacity = backgroundOpacity,
     ) {
-        Column {
+        Column(if (gridMode) Modifier.fillMaxSize() else Modifier) {
             AnimatedVisibility(editMode) {
                 Row(
                     modifier = Modifier.padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
+                    if (!gridMode) Icon(
                         painterResource(R.drawable.drag_indicator_24px),
                         contentDescription = null,
                         modifier = Modifier.draggable(
@@ -122,7 +125,7 @@ fun WidgetItem(
                     }
                 }
             }
-            AnimatedVisibility(!editMode) {
+            AnimatedVisibility(!editMode || gridMode, modifier = if (gridMode) Modifier.weight(1f).fillMaxWidth() else Modifier) {
                 when (widget) {
                     is WeatherWidget -> {
                         WeatherWidget(widget)
@@ -150,6 +153,7 @@ fun WidgetItem(
                     is AppWidget -> {
                         AppWidget(
                             widget,
+                            gridMode = gridMode,
                             onWidgetUpdate = onWidgetUpdate,
                             onWidgetRemove = onWidgetRemove,
                         )
@@ -160,6 +164,7 @@ fun WidgetItem(
     }
     ConfigureWidgetSheet(
         expanded = configure,
+        gridManaged = gridMode,
         widget = widget,
         onWidgetUpdated = onWidgetUpdate,
         onDismiss = { configure = false },

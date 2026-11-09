@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.mm20.launcher2.ui.dashboard.DashboardPanel
+import de.mm20.launcher2.ui.dashboard.GridEditing
 import de.mm20.launcher2.ui.launcher.scaffold.LauncherScaffoldState
 
 internal object ClockHomeComponent : ScaffoldComponent() {
@@ -17,10 +18,19 @@ internal object ClockHomeComponent : ScaffoldComponent() {
     @Composable override fun Component(modifier: Modifier, insets: PaddingValues, state: LauncherScaffoldState) {
         var previous by remember { mutableIntStateOf(scroll.value) }
         LaunchedEffect(scroll.value) {
-            state.onComponentScroll((scroll.value - previous).toFloat()); previous = scroll.value
+            if (GridEditing.target != "home") state.onComponentScroll((scroll.value - previous).toFloat())
+            previous = scroll.value
+        }
+        LaunchedEffect(GridEditing.target) {
+            if (GridEditing.target == "home") state.lock(hideSearchBar = false) else if (GridEditing.target == null) state.unlock()
         }
         DashboardPanel(modifier.padding(insets).padding(bottom = 8.dp),
-            scroll = scroll, scrollingEnabled = !state.isDragged)
+            scroll = scroll, scrollingEnabled = !state.isDragged, includeNativeWidgets = false)
     }
-    override suspend fun onDismiss(state: LauncherScaffoldState) { super.onDismiss(state); scroll.scrollTo(0) }
+    override suspend fun onActivate(state: LauncherScaffoldState) {
+        super.onActivate(state); GridEditing.currentParent = "home"
+    }
+    override suspend fun onDismiss(state: LauncherScaffoldState) { if (GridEditing.target == "home") GridEditing.active = false
+        if (GridEditing.target == null) state.unlock()
+        super.onDismiss(state); scroll.scrollTo(0) }
 }

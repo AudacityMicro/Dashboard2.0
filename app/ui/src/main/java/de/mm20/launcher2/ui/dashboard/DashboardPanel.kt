@@ -2,10 +2,14 @@ package de.mm20.launcher2.ui.dashboard
 
 import android.content.Intent
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import de.mm20.launcher2.ui.component.LauncherCard
+import de.mm20.launcher2.ui.launcher.widgets.rememberNativeGridWidgets
+import de.mm20.launcher2.preferences.WidgetScreenTarget
+import de.mm20.launcher2.preferences.ui.UiSettings
+import org.koin.compose.koinInject
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,7 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = rememberScrollState(),
-    scrollingEnabled: Boolean = true, footer: @Composable () -> Unit = {}) {
+    scrollingEnabled: Boolean = true, includeNativeWidgets: Boolean = true) {
     val context = LocalContext.current
     val app = context.applicationContext
     val lifecycle = LocalLifecycleOwner.current
@@ -66,12 +70,19 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
             }
         }
     }
-    Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        Column(Modifier.weight(1f).verticalScroll(scroll, enabled = scrollingEnabled).padding(bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (loaded && !board.setupHidden) LauncherCard(Modifier.fillMaxWidth().testTag("agent-setup")) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Set up your agent", style = MaterialTheme.typography.titleLarge)
+    val editing = GridEditing.target == "home"
+    val uiSettings: UiSettings = koinInject()
+    var pendingNativeEnable by rememberSaveable { mutableStateOf(false) }
+    val native = rememberNativeGridWidgets(WidgetScreenTarget.Default.id.toString(), editing,
+        onWidgetAdded = { if (!includeNativeWidgets) pendingNativeEnable = true })
+    LaunchedEffect(editing, pendingNativeEnable) {
+        if (!editing && pendingNativeEnable) { uiSettings.setHomeScreenWidgets(true); pendingNativeEnable = false }
+    }
+    LaunchedEffect(editing) { if (editing) scroll.scrollTo(0) }
+    val tiles = listOf(
+        GridTile("setup", "Setup", rows = 8, visible = loaded && !board.setupHidden) { tileModifier ->
+            LauncherCard(tileModifier.testTag("agent-setup")) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(if (board.instructionsFileId.isBlank())
                         "Connect Google Drive from the menu, then copy this prompt to your agent. It explains how to use your captures, updates and tasks."
                         else "Copy this prompt to your agent. It includes your Drive file IDs and asks your agent to check the instructions file for current guidance.")
@@ -98,27 +109,23 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                         modifier = Modifier.testTag("agent-setup-copied"), style = MaterialTheme.typography.labelMedium)
                 }
             }
-            LauncherCard(Modifier.fillMaxWidth().testTag("agent-updates")) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Agent updates", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    }
-                    if (board.updates.isEmpty()) Text(if (board.setupHidden) "No agent updates yet." else
-                        "Your agent’s information will appear here. Your last saved updates remain available offline.")
+        },
+        GridTile("updates", "Updates", rows = 4, visible = board.updates.isNotEmpty()) { tileModifier ->
+            LauncherCard(tileModifier.testTag("agent-updates")) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     board.updates.forEach { update ->
                         Text(update.title, style = MaterialTheme.typography.titleMedium)
                         if (update.body.isNotEmpty()) Text(update.body, style = MaterialTheme.typography.bodyMedium)
                         HorizontalDivider()
                     }
-                    if (board.connectionIssue.isNotEmpty()) Text(board.connectionIssue,
-                        style = MaterialTheme.typography.labelMedium, modifier = Modifier.testTag("drive-disconnected"))
-
                 }
             }
-            LauncherCard(Modifier.fillMaxWidth().testTag("todo-list")) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        },
+        GridTile("tasks", "Tasks", rows = 5, visible = board.tasks.isNotEmpty()) { tileModifier ->
+            LauncherCard(tileModifier.testTag("todo-list")) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("To-do list", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.weight(1f))
                         val completed = board.tasks.count { it.completed }
                         if (completed > 0) TextButton(onClick = { showCompleted = !showCompleted },
                             modifier = Modifier.testTag("toggle-completed").semantics {
@@ -130,7 +137,6 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                     }
                     val open = board.tasks.count { !it.completed }
                     Text("$open remaining", style = MaterialTheme.typography.labelMedium)
-                    if (board.tasks.isEmpty()) Text("Add a task here or let your agent send one.")
                     board.tasks.filter { showCompleted || !it.completed }.forEach { task ->
                         key(task.id) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -146,7 +152,19 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                     if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
                 }
             }
-            footer()
+        },
+        GridTile("connection", "Connection", rows = 2, visible = board.connectionIssue.isNotEmpty()) { tileModifier ->
+            LauncherCard(tileModifier.testTag("drive-disconnected")) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
+                    Text(board.connectionIssue.ifEmpty { "Drive connected" }, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+    ) + native.tiles.map { it.copy(visible = includeNativeWidgets) }
+    Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(scroll, enabled = scrollingEnabled).padding(bottom = 12.dp)) {
+            if (loaded && native.loaded) ProfiledWidgetGrid("home", tiles, editing = editing, onAdd = native.add,
+                onPlaced = { if (it.startsWith("widget-") && !includeNativeWidgets) pendingNativeEnable = true })
         }
         CaptureDock(capture, Modifier.fillMaxWidth().padding(vertical = 8.dp), onAddTask = { adding = true })
     }

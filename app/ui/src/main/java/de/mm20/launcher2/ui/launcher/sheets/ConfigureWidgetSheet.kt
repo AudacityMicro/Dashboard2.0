@@ -130,6 +130,7 @@ import kotlin.math.roundToInt
 @Composable
 fun ConfigureWidgetSheet(
     expanded: Boolean,
+    gridManaged: Boolean = false,
     widget: Widget,
     onWidgetUpdated: (Widget) -> Unit,
     onDismiss: () -> Unit,
@@ -147,7 +148,7 @@ fun ConfigureWidgetSheet(
         ) {
             when (widget) {
                 is WeatherWidget -> ConfigureWeatherWidget(widget, onWidgetUpdated)
-                is AppWidget -> ConfigureAppWidget(widget, onWidgetUpdated)
+                is AppWidget -> ConfigureAppWidget(widget, onWidgetUpdated, gridManaged)
                 is CalendarWidget -> ConfigureCalendarWidget(widget, onWidgetUpdated)
                 is AppsWidget -> ConfigureFavoritesWidget(widget, onWidgetUpdated)
                 is MusicWidget -> ConfigureMusicWidget(widget, onWidgetUpdated)
@@ -635,6 +636,7 @@ fun ColumnScope.ConfigureMusicWidget(
 fun ColumnScope.ConfigureAppWidget(
     widget: AppWidget,
     onWidgetUpdated: (Widget) -> Unit,
+    gridManaged: Boolean = false,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -697,7 +699,9 @@ fun ColumnScope.ConfigureAppWidget(
         return
     }
 
-    Column {
+    if (gridManaged) Text("Use Edit layout to change this widget’s rows and columns.",
+        modifier = Modifier.padding(8.dp), style = MaterialTheme.typography.labelMedium)
+    if (!gridManaged) Column {
         Box(
             modifier = Modifier
                 .fillMaxWidth()

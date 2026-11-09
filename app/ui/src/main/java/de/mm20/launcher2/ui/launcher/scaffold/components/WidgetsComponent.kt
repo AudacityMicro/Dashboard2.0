@@ -10,7 +10,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.verticalScroll
@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import de.mm20.launcher2.preferences.WidgetScreenTarget
 import de.mm20.launcher2.ui.R
+import de.mm20.launcher2.ui.dashboard.GridEditing
 import de.mm20.launcher2.ui.launcher.scaffold.LauncherScaffoldState
 import de.mm20.launcher2.ui.launcher.widgets.WidgetColumn
 import kotlinx.coroutines.launch
@@ -92,6 +93,10 @@ internal class WidgetsComponent(
         var editMode by rememberSaveable { mutableStateOf(false) }
 
         val scope = rememberCoroutineScope()
+        LaunchedEffect(GridEditing.target) {
+            if (GridEditing.target == "widgets-${target.id}") { state.lock(hideSearchBar = false); scrollState.scrollTo(0) }
+            else if (GridEditing.target == null && !editMode) state.unlock()
+        }
         val topPadding by animateDpAsState(if (editMode) 64.dp else 0.dp)
 
         val scrollConnection = remember(state) {
@@ -120,10 +125,10 @@ internal class WidgetsComponent(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             WidgetColumn(
-                modifier = Modifier.widthIn(max = 900.dp).fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth(),
                 editMode = editMode,
                 onEditModeChange = {
-                    scope.launch { state.lock(hideSearchBar = true) }
+                    scope.launch { if (it) state.lock(hideSearchBar = true) else state.unlock() }
                     editMode = it
                 },
                 parentId = target.id.toString(),
@@ -160,7 +165,13 @@ internal class WidgetsComponent(
         }
     }
 
+    override suspend fun onActivate(state: LauncherScaffoldState) {
+        super.onActivate(state); GridEditing.currentParent = "widgets-${target.id}"
+    }
     override suspend fun onDismiss(state: LauncherScaffoldState) {
+        if (GridEditing.target == "widgets-${target.id}") GridEditing.active = false
+        if (GridEditing.currentParent == "widgets-${target.id}") GridEditing.currentParent = "home"
+        if (GridEditing.target == null) state.unlock()
         super.onDismiss(state)
         scrollState.scrollTo(0)
     }

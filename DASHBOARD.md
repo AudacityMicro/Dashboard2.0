@@ -60,10 +60,67 @@ least-privilege `drive.file` scope. Each capture produces:
 - `Dashboard-<uuid>.json`: UTF-8 record with `schemaVersion`, `id`, `createdAt` (UTC),
   `kind`, `mimeType`, `text`, `driveFileId`, and `source`.
 
+### Movable widgets and screen layouts
+
+Home's large section headings are removed. Empty agent-update and task sections
+are hidden; a list containing completed tasks still has a small completed-count
+control. Setup retains its existing Hide setup preference, and the connection
+widget appears only when Drive needs connection attention.
+
+Open the search bar's three-dot menu and choose **Edit layout**. Dashboard sections
+and regular widgets use the same two-dimensional grid. Drag **Move** horizontally
+and vertically, drag **Resize**, or tap a size to enter exact column, row, width and
+height. **Widgets** also opens precise placement for very small widgets and lets
+you restore hidden items. Use **Grid** to choose 2–12 columns and 40–120 dp row
+height. Widget spans can cover 1–12 columns (within the current grid) and 1–32 rows.
+The canvas scrolls vertically and has a 512-row bound. Crowded placements push
+intersecting widgets down rather than overlapping or losing their configuration.
+Controls can be clipped at extremely small spans while editing; use **Widgets**
+for numeric editing, then Done to see the normal full widget content.
+
+**Portrait**, **Landscape**, and **Unfolded** have independent saved positions,
+sizes, grid density and hidden-widget choices, for Home and for each widget page.
+Choose a profile in the editor to prepare it even on another screen size. Done
+returns to automatic selection. Normal windows use their current orientation;
+Jetpack WindowManager folding features select Unfolded, with a minimum window
+width/height of 600 dp as the large-screen fallback. Tablets and large windows
+therefore also use Unfolded. Layout selection follows the available app window,
+including resizing/multi-window. The launcher's Auto/Portrait/Landscape orientation
+preference is honored; Auto still respects Android's rotation setting.
+
+**Hide** affects only the selected profile and does not delete notes or widget
+data. **Show** in Widgets restores it. Empty dashboard sections are visible as
+placeholders in the editor so you can size them before content arrives. Regular
+widget content/configuration is shared across profiles; native Android widget IDs
+are reused, with width and height updated for the active profile. Existing provider
+configuration is retained. Removing a regular widget everywhere asks explicitly;
+it is different from hiding it in one profile.
+
+The existing Home widgets preference is preserved: built-in widgets are not dumped
+onto a dashboard-only home. Adding or placing a regular widget enables Home widgets
+when you finish editing. Existing widgets remain available in the editor and on
+their original widget pages. Android widget providers may have minimum useful
+sizes; a very small box can clip their content. Resize larger if necessary.
+
+Layouts are stored privately in the backup-excluded dashboard database under
+`grid.v1.<page>.<profile>` with a versioned, validated JSON schema. They survive app
+upgrades but are not synchronized through the agent board. Agent content, task
+completion, widget configuration and OAuth state use their existing storage.
+Malformed stored layouts report an error and are retained instead of overwritten.
+
+Grid tests cover packing in rows/columns, drag/resize collision handling, bounded
+sizes, independent profile persistence/visibility, configuration changes and
+recreation, native Android widget width/height options, and actual window rotation
+plus an expanded emulator display. Physical folding transitions, occluding hinges,
+provider-specific minimum sizes and multi-window resizing need device acceptance.
+Screenshot tests use explicit sample content and restore prior local state. Only
+when screenshots are requested on an SDK emulator do they temporarily change its
+display size; the original size is restored afterward.
+
 ### Home capture tools
 
 The four Home controls are **Text**, **Voice** (hold), **Photo** and **Upload**. They
-stay in a bottom dock while the dashboard and optional widgets scroll above them.
+stay in a bottom dock while the dashboard widgets scroll above them.
 Dashboard cards use the same surface transparency and card styling as launcher
 widgets. The search bar's three-dot menu includes **Update launcher**, so updates
 remain available after setup is hidden.
@@ -316,8 +373,8 @@ for approval, not performed automatically because a note reaches 30 days. The ap
 itself does not move notes or enforce retention, and Drive moves do not remove
 the phone's local originals.
 
-The main/home tab now shows quick-capture buttons, **Agent updates** and a **To-do list**,
-plus any enabled home widgets. Add a task or check/uncheck it directly on the phone;
+The main/home tab shows a bottom capture dock and a grid of agent updates, tasks
+and enabled widgets. Updates and task widgets hide when empty and have no large section headings. Add a task or check/uncheck it directly on the phone;
 changes are saved offline immediately. Completed tasks can be shown or hidden. Search
 and app launching keep their existing gestures. The large home clock and charging block are removed so the dashboard starts near the
 top of the screen.
@@ -340,7 +397,7 @@ See [AGENT_BOARD.md](AGENT_BOARD.md) for the file contract and a sample board. U
 through the existing periodic worker (about 15 minutes, subject to Android restrictions).
 Cached information stays visible offline without routine connection commentary.
 **Add task** lives in the fixed bottom dock. Completed tasks stay hidden by default;
-the small **N done** control at the to-do heading toggles them.
+the small **N done** control inside the task widget toggles them.
 Phone-added tasks and explicit completion overrides survive all incoming refreshes.
 Stable task IDs identify the same task; give a genuinely new task a new ID.
 
