@@ -281,6 +281,13 @@ class DashboardHomeTest {
                     androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Copy agent setup prompt"))
                         .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isEnabled()))
                     val show = androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Show setup on home screen"))
+                    var setupSwitch: android.widget.Switch? = null
+                    show.check { view, failure -> if (failure != null) throw failure; setupSwitch = view as android.widget.Switch }
+                    compose.waitUntil(5000) {
+                        var ready = false
+                        instrumentation.runOnMainSync { ready = setupSwitch?.isEnabled == true }
+                        ready
+                    }
                     show.check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isNotChecked()))
                         .perform(androidx.test.espresso.action.ViewActions.scrollTo(), androidx.test.espresso.action.ViewActions.click())
                     compose.waitUntil(5000) { DashboardStore(context).use { !it.snapshot().setupHidden } }
