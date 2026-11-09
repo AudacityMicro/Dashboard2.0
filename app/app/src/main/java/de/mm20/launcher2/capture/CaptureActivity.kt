@@ -82,6 +82,9 @@ open class CaptureActivity : Activity() {
         button("Retry queued or failed uploads") {
             background({ InboxStore(this).use { it.retry() }; SyncQueue.enqueue(this) }) { load() }
         }
+        button("Check for Dashboard updates") {
+            startActivity(Intent(this, de.mm20.launcher2.updates.UpdateActivity::class.java))
+        }
         rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }; layout.addView(rows)
         if (savedInstanceState == null && intent.action == Intent.ACTION_SEND) {
             val mime = intent.type.orEmpty()

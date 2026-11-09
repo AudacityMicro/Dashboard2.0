@@ -142,7 +142,7 @@ adb install -r app/app/build/outputs/apk/androidTest/default/debug/app-default-d
 adb shell am instrument -w io.github.audacitymicro.dashboard.debug.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-Require `OK (15 tests)`, rather than a shell exit code alone. Allocate at least 4 GiB
+Require a nonzero `OK (... tests)` result, rather than a shell exit code alone. Allocate at least 4 GiB
 RAM to the Google-enabled test emulator to avoid startup memory pressure interrupting
 the test process. Test only on a disposable device/emulator.
 
@@ -176,6 +176,33 @@ regressions require device validation; do not equate a compile with these checks
 - [Google Android authorization](https://developer.android.com/identity/authorization)
 - [Drive pre-generated IDs](https://developers.google.com/workspace/drive/api/guides/manage-uploads#use_a_pre-generated_id_to_upload_files)
 - [AndroidX Test release compatibility](https://developer.android.com/jetpack/androidx/releases/test)
+
+## Dashboard updates
+
+Tap **Check for updates** on the home setup card or **Check for Dashboard updates**
+in Capture inbox, then **Check now**. This manual check contacts the public GitHub
+releases API without Google credentials. It examines the 30 most recent published
+releases, skips drafts/missing APKs and compares Dashboard versions numerically.
+Preview builds include preview releases; a future stable build stays on stable.
+Offline, rate-limit and server errors remain visible and can be retried.
+
+**Download update** opens the official repository's APK URL in your browser. Open
+the downloaded APK and approve Android's update prompt. Android verifies the installed
+package's signing certificate. Install over the app; uninstalling removes private,
+unsynced data. No background checks, automatic downloads or silent installs occur.
+This channel supports the default debug package distributed in Dashboard previews;
+other build types must use their own provider.
+
+Maintainers: tag releases `vMAJOR.MINOR.PATCH-preview.NUMBER` or `vMAJOR.MINOR.PATCH`;
+publish a fully uploaded `Dashboard-2.0-preview.apk` asset. Keep `versionName` aligned
+with the tag and increment Android `versionCode` for every distributed build (including
+CI overrides). Continue signing published updates with the same private signing key.
+CI's temporary debug keys cannot update the locally signed preview installation.
+Preserve the maintainer's key securely outside the public repository. Never replace
+an existing version's asset with different code. Existing Preview 1/2 installations
+need one manual installation of Preview 3 or newer to gain this feature.
+
+Release API: https://docs.github.com/en/rest/releases/releases
 
 Completed recordings are retained as private staging files if committing the inbox
 fails (for example, when storage is full), rather than deleting the original.

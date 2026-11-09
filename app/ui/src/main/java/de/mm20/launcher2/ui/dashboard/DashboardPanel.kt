@@ -61,6 +61,9 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
                         .setPrimaryClip(android.content.ClipData.newPlainText("Dashboard agent setup", AgentSetup.prompt(board)))
                     copiedSetup = true
                 }) { Text("Copy agent setup prompt") }
+                TextButton(modifier = Modifier.testTag("check-dashboard-updates"), onClick = {
+                    context.startActivity(Intent().setClassName(context.packageName, "de.mm20.launcher2.updates.UpdateActivity"))
+                }) { Text("Check for updates") }
                 if (copiedSetup) Text(if (board.instructionsFileId.isBlank())
                     "Copied. After Drive syncs, copy again to include your file IDs."
                     else "Copied. Paste it into your agent's chat to finish setup.",

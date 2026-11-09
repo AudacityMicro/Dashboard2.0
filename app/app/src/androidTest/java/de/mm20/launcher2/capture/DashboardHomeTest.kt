@@ -13,6 +13,21 @@ import org.junit.Test
 
 class DashboardHomeTest {
     @get:Rule val compose = createEmptyComposeRule()
+    @Test fun updateScreenOpensFromHomeWithoutStartingANetworkCheck() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val monitor = instrumentation.addMonitor(de.mm20.launcher2.updates.UpdateActivity::class.java.name, null, false)
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("check-dashboard-updates").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("check-dashboard-updates").performScrollTo().performClick()
+                val opened = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
+                assertNotNull(opened)
+                androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Tap Check now to contact GitHub."))
+                    .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isDisplayed()))
+                instrumentation.runOnMainSync { opened.finish() }
+            }
+        } finally { instrumentation.removeMonitor(monitor) }
+    }
     @Test fun setupPromptIsAvailableOnHomeBeforeDriveConnection() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         ActivityScenario.launch(LauncherActivity::class.java).use {

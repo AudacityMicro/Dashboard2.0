@@ -54,6 +54,8 @@
         <receiver android:name=".capture.DashboardSyncReceiver" android:exported="false">
             <intent-filter><action android:name="${applicationId}.dashboard.SYNC" /></intent-filter>
         </receiver>
+        <activity android:name=".updates.UpdateActivity" android:exported="false"
+            android:label="Dashboard updates" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name=".capture.QuickCaptureActivity" android:exported="false"
             android:label="Quick capture" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name=".capture.CaptureActivity" android:exported="true"
