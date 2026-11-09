@@ -32,7 +32,11 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
     var saving by remember { mutableStateOf(false) }
     var showCompleted by rememberSaveable { mutableStateOf(false) }
     var copiedSetup by remember { mutableStateOf(false) }
-    suspend fun reload() { board = withContext(Dispatchers.IO) { DashboardStore(app).use { it.snapshot() } } }
+    var loaded by remember { mutableStateOf(false) }
+    suspend fun reload() {
+        board = withContext(Dispatchers.IO) { DashboardStore(app).use { it.snapshot() } }
+        loaded = true
+    }
     fun sync() { context.sendBroadcast(Intent("${context.packageName}.dashboard.SYNC").setPackage(context.packageName)) }
     fun change(work: (DashboardStore) -> Unit) { scope.launch {
         try {
@@ -50,7 +54,7 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
         }
     }
     Column(modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ElevatedCard(Modifier.fillMaxWidth().testTag("agent-setup")) {
+        if (loaded && !board.setupHidden) ElevatedCard(Modifier.fillMaxWidth().testTag("agent-setup")) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Set up your agent", style = MaterialTheme.typography.titleLarge)
                 Text(if (board.instructionsFileId.isBlank())
@@ -64,6 +68,15 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
                 TextButton(modifier = Modifier.testTag("check-dashboard-updates"), onClick = {
                     context.startActivity(Intent().setClassName(context.packageName, "de.mm20.launcher2.updates.UpdateActivity"))
                 }) { Text("Check for updates") }
+                TextButton(modifier = Modifier.testTag("hide-dashboard-setup"), onClick = {
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) { DashboardStore(app).use { it.setMeta("setupHidden", "true") } }
+                            reload(); error = ""
+                        } catch (_: Exception) { error = "Could not save the home-screen preference." }
+                    }
+                }) { Text("Hide setup") }
+                Text("You can show setup again from Dashboard Inbox.", style = MaterialTheme.typography.labelSmall)
                 if (copiedSetup) Text(if (board.instructionsFileId.isBlank())
                     "Copied. After Drive syncs, copy again to include your file IDs."
                     else "Copied. Paste it into your agent's chat to finish setup.",
@@ -90,20 +103,22 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
                     Text("Agent updates", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                     TextButton(onClick = { sync() }) { Text("Refresh") }
                 }
-                if (board.updates.isEmpty()) Text("Your agent’s information will appear here. Your last saved updates remain available offline.")
+                if (board.updates.isEmpty()) Text(if (board.setupHidden) "No agent updates yet." else
+                    "Your agent’s information will appear here. Your last saved updates remain available offline.")
                 board.updates.forEach { update ->
                     Text(update.title, style = MaterialTheme.typography.titleMedium)
                     if (update.body.isNotEmpty()) Text(update.body, style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider()
                 }
-                Text(board.status.ifEmpty { "Connect Google Drive in Capture inbox to receive updates." }, style = MaterialTheme.typography.labelMedium)
+                if (board.status.isNotEmpty() || !board.setupHidden)
+                    Text(board.status.ifEmpty { "Connect Google Drive in Capture inbox to receive updates." }, style = MaterialTheme.typography.labelMedium)
                 if (board.lastSync > 0) Text("Last synced: ${java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(board.lastSync))}", style = MaterialTheme.typography.labelSmall)
                 Row {
                     TextButton(onClick = {
                         context.startActivity(Intent().setClassName(context.packageName, "de.mm20.launcher2.capture.CaptureActivity"))
-                    }) { Text("Capture inbox / Drive setup") }
+                    }) { Text(if (board.setupHidden) "Capture inbox" else "Capture inbox / Drive setup") }
                 }
-                TextButton(enabled = board.agentFileId.isNotEmpty(), onClick = {
+                if (!board.setupHidden) TextButton(enabled = board.agentFileId.isNotEmpty(), onClick = {
                     val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Dashboard agent files",
                         "Agent writes Dashboard-agent.json: ${board.agentFileId}\nAgent reads Dashboard-phone-tasks.json: ${board.phoneFileId}\nAgent reads ${AgentSetup.INSTRUCTIONS_NAME}: ${board.instructionsFileId.ifBlank { "Pending first successful sync" }}\nKeep schemaVersion 1 and stable task IDs. Never write the phone-owned file."))

@@ -85,6 +85,47 @@ open class CaptureActivity : Activity() {
         button("Check for Dashboard updates") {
             startActivity(Intent(this, de.mm20.launcher2.updates.UpdateActivity::class.java))
         }
+        button("Copy agent setup prompt") {
+            background({ de.mm20.launcher2.dashboard.DashboardStore(this).use { it.snapshot() } }) { board ->
+                getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(
+                    android.content.ClipData.newPlainText("Dashboard agent setup", de.mm20.launcher2.dashboard.AgentSetup.prompt(board)))
+                message("Agent setup prompt copied")
+            }
+        }
+        button("Copy agent file IDs") {
+            background({ de.mm20.launcher2.dashboard.DashboardStore(this).use { it.snapshot() } }) { board ->
+                if (board.instructionsFileId.isBlank()) message("Connect Drive and finish syncing first")
+                else {
+                    getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(
+                        android.content.ClipData.newPlainText("Dashboard agent files",
+                            "Instructions: ${board.instructionsFileId}\nAgent board: ${board.agentFileId}\nPhone task state (read only): ${board.phoneFileId}"))
+                    message("Agent file IDs copied")
+                }
+            }
+        }
+        val showSetup = Switch(this).apply { text = "Show setup on home screen"; isEnabled = false }
+        layout.addView(showSetup)
+        var resettingSetup = false
+        background({ de.mm20.launcher2.dashboard.DashboardStore(this).use { !it.snapshot().setupHidden } }) { show ->
+            showSetup.isChecked = show; showSetup.isEnabled = true
+            showSetup.setOnCheckedChangeListener { _, checked ->
+                if (resettingSetup) return@setOnCheckedChangeListener
+                showSetup.isEnabled = false
+                background({
+                    try {
+                        de.mm20.launcher2.dashboard.DashboardStore(this).use { it.setMeta("setupHidden", (!checked).toString()) }
+                        true
+                    } catch (_: Exception) { false }
+                }) { saved ->
+                    showSetup.isEnabled = true
+                    if (saved) message(if (checked) "Setup will appear on Home" else "Setup hidden from Home")
+                    else {
+                        resettingSetup = true; showSetup.isChecked = !checked; resettingSetup = false
+                        message("Could not save the home-screen preference. Try again.")
+                    }
+                }
+            }
+        }
         rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }; layout.addView(rows)
         if (savedInstanceState == null && intent.action == Intent.ACTION_SEND) {
             val mime = intent.type.orEmpty()

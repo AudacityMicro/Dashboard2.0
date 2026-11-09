@@ -13,6 +13,41 @@ import org.junit.Test
 
 class DashboardHomeTest {
     @get:Rule val compose = createEmptyComposeRule()
+    @Test fun hiddenSetupSurvivesRecreationAndCanBeRestoredFromInbox() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val old = DashboardStore(context).use { it.meta("setupHidden") }
+        try {
+            DashboardStore(context).use { it.setMeta("setupHidden", "false") }
+            ActivityScenario.launch(LauncherActivity::class.java).use { home ->
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("hide-dashboard-setup").performScrollTo().performClick()
+                compose.waitUntil(5000) {
+                    DashboardStore(context).use { it.snapshot().setupHidden } &&
+                        compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isEmpty()
+                }
+                home.recreate()
+                compose.waitForIdle()
+                compose.onNodeWithTag("agent-setup").assertDoesNotExist()
+                compose.onNodeWithText("Copy agent file IDs").assertDoesNotExist()
+                compose.onNodeWithTag("capture-actions").assertExists()
+                compose.onNodeWithTag("todo-list").assertExists()
+                val instrumentation = InstrumentationRegistry.getInstrumentation()
+                val monitor = instrumentation.addMonitor(CaptureActivity::class.java.name, null, false)
+                try {
+                    compose.onNodeWithText("Capture inbox").performScrollTo().performClick()
+                    val inbox = requireNotNull(instrumentation.waitForMonitorWithTimeout(monitor, 5000))
+                    androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Copy agent setup prompt"))
+                        .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isEnabled()))
+                    val show = androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Show setup on home screen"))
+                    show.check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isNotChecked()))
+                        .perform(androidx.test.espresso.action.ViewActions.scrollTo(), androidx.test.espresso.action.ViewActions.click())
+                    compose.waitUntil(5000) { DashboardStore(context).use { !it.snapshot().setupHidden } }
+                    instrumentation.runOnMainSync { inbox.finish() }
+                } finally { instrumentation.removeMonitor(monitor) }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            }
+        } finally { DashboardStore(context).use { it.setMeta("setupHidden", old) } }
+    }
     @Test fun updateScreenOpensFromHomeWithoutStartingANetworkCheck() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val monitor = instrumentation.addMonitor(de.mm20.launcher2.updates.UpdateActivity::class.java.name, null, false)

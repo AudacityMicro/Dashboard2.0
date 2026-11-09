@@ -210,6 +210,14 @@ Staging-file recovery is not yet exposed in the UI.
 
 ## Home tab: agent updates and to-dos
 
+Tap **Hide setup** on the home setup card whenever you are ready to clear the setup
+controls from Home. The choice persists across launcher restarts and app updates.
+It hides the setup card and file-ID button, while capture actions, agent updates,
+task controls and operational sync status remain available. Open **Capture inbox**
+to reconnect Drive, copy the setup prompt/file IDs or check for updates. Turn on
+**Show setup on home screen** there to restore the home setup controls. Hiding setup
+does not change your connections, tasks or captures; setup completion is your choice.
+
 From first launch, **Set up your agent** offers **Copy agent setup prompt**. Connect
 Drive and let it sync, then copy the prompt to include the exact board, phone-state
 and `Dashboard-agent-instructions.md` file IDs. Before connection the button still
