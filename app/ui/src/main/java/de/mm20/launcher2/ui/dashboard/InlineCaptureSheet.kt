@@ -6,13 +6,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import de.mm20.launcher2.ui.R
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -67,12 +70,14 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
         if (model.busy) return
         when {
             model.recording -> model.stopAndSave(closeWhenSaved = true)
-            model.pendingVoice || (model.mode == InlineCaptureMode.Text && model.draft.isNotBlank()) -> confirmDiscard = true
+            model.pendingVoice || (model.mode == InlineCaptureMode.Text && model.hasTextDraft) -> confirmDiscard = true
             else -> { keyboard?.hide(); model.close() }
         }
     }
     BottomSheet(state = model.mode, expanded = { it != null && !(model.holding && model.holdFromDock) }, onDismissRequest = { dismiss() }) { mode ->
-        Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState())
+        if (mode == InlineCaptureMode.Text) {
+            InlineNoteEditor(model, onClose = { dismiss() }, onSave = { keyboard?.hide(); model.saveText() })
+        } else Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState())
             .padding(24.dp).navigationBarsPadding().testTag("inline-capture-sheet"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(when (mode) {
                 InlineCaptureMode.Text -> "Text note"
@@ -96,17 +101,6 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
                 Button(onClick = { keyboard?.hide(); model.close() }, modifier = Modifier.fillMaxWidth()) { Text("Done") }
             } else {
                 when (mode) {
-                    InlineCaptureMode.Text -> {
-                        val focus = remember { FocusRequester() }
-                        LaunchedEffect(Unit) { delay(250); focus.requestFocus(); keyboard?.show() }
-                        OutlinedTextField(value = model.draft, onValueChange = model::edit,
-                            modifier = Modifier.fillMaxWidth().focusRequester(focus).testTag("inline-note-editor"),
-                            enabled = !model.busy, label = { Text("Your note") }, placeholder = { Text("Drop a thought here…") },
-                            minLines = 4, maxLines = 8, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-                            keyboardActions = KeyboardActions.Default)
-                        Button(onClick = { keyboard?.hide(); model.saveText() }, enabled = model.draft.isNotBlank() && !model.busy,
-                            modifier = Modifier.fillMaxWidth().testTag("inline-note-save")) { Text("Save note") }
-                    }
                     InlineCaptureMode.Voice -> {
                         var elapsed by remember { mutableLongStateOf(0) }
                         LaunchedEffect(model.recording, model.startedAt) {
@@ -139,4 +133,40 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
         text = { Text("Your unsaved content will be removed. Saved notes stay in your inbox.") },
         confirmButton = { TextButton(onClick = { confirmDiscard = false; keyboard?.hide(); model.discard() }) { Text("Discard") } },
         dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep editing") } })
+}
+
+/** A pinned toolbar and a scrolling writing surface keep Save reachable above the keyboard. */
+@Composable
+private fun InlineNoteEditor(model: InlineCaptureViewModel, onClose: () -> Unit, onSave: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) { delay(250); focus.requestFocus(); keyboard?.show() }
+    val colors = TextFieldDefaults.colors(
+        focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
+        disabledContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent,
+        unfocusedIndicatorColor = Color.Transparent, disabledIndicatorColor = Color.Transparent)
+    Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).navigationBarsPadding().testTag("inline-capture-sheet")) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onClose, enabled = !model.busy, modifier = Modifier.testTag("inline-note-close")) {
+                Icon(painterResource(R.drawable.close_24px), contentDescription = "Close")
+            }
+            Text("New note", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Button(onClick = onSave, enabled = model.hasTextDraft && !model.busy,
+                modifier = Modifier.testTag("inline-note-save")) { Text(if (model.busy) "Saving…" else "Save") }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 8.dp)) {
+            TextField(value = model.title, onValueChange = model::editTitle, enabled = !model.busy,
+                placeholder = { Text("Title", style = MaterialTheme.typography.headlineSmall) },
+                textStyle = MaterialTheme.typography.headlineSmall, singleLine = true,
+                colors = colors, modifier = Modifier.fillMaxWidth().testTag("inline-note-title"))
+            TextField(value = model.draft, onValueChange = model::edit, enabled = !model.busy,
+                placeholder = { Text("Start writing…") }, textStyle = MaterialTheme.typography.bodyLarge,
+                colors = colors, minLines = 12, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus).testTag("inline-note-editor"))
+        }
+        if (model.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (model.error.isNotBlank()) Text(model.error, color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(16.dp).testTag("inline-capture-error"))
+    }
 }

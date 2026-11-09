@@ -22,6 +22,7 @@ import de.mm20.launcher2.dashboard.AgentSetup
 import de.mm20.launcher2.ui.launcher.LauncherActivity
 import org.junit.Assert.*
 import org.junit.Rule
+import kotlinx.coroutines.flow.first
 import org.junit.Test
 
 class DashboardHomeTest {
@@ -364,35 +365,67 @@ class DashboardHomeTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val monitor = instrumentation.addMonitor(QuickCaptureActivity::class.java.name, null, false)
         val context = instrumentation.targetContext
+        val ui = org.koin.core.context.GlobalContext.get().get<de.mm20.launcher2.preferences.ui.UiSettings>()
+        val orientation = kotlinx.coroutines.runBlocking { ui.orientation.first() }
+        ui.setOrientation(de.mm20.launcher2.preferences.ScreenOrientation.Portrait)
+        kotlinx.coroutines.runBlocking { ui.orientation.first { it == de.mm20.launcher2.preferences.ScreenOrientation.Portrait } }
         val text = "Inline note ${java.util.UUID.randomUUID()}"
+        val title = "A note title"
+        val savedText = "$title\n\n$text"
         var id: String? = null
         try {
             ActivityScenario.launch(LauncherActivity::class.java).use { home ->
-                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-actions").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-actions").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                 compose.onNodeWithTag("capture-text").assertExists()
                 compose.onNodeWithTag("capture-voice").assertExists()
                 compose.onNodeWithTag("capture-image").assertExists()
                 compose.onNodeWithTag("capture-file").assertExists()
                 compose.onNodeWithTag("capture-text").performClick()
-                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                 compose.onNodeWithTag("inline-note-save").assertIsNotEnabled()
-                screenshot("inline-text.png")
+                compose.onNodeWithTag("inline-note-title").performTextInput(title)
+                compose.onNodeWithTag("inline-note-save").assertIsEnabled()
                 compose.onNodeWithTag("inline-note-editor").performTextInput(text)
+                androidx.test.espresso.Espresso.closeSoftKeyboard()
+                compose.waitForIdle()
+                screenshot("inline-text.png")
                 home.recreate()
-                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
                 compose.onNodeWithTag("inline-note-editor").assertTextContains(text)
-                compose.onNodeWithText("Close", useUnmergedTree = true).performScrollTo().performClick()
+                compose.onNodeWithTag("inline-note-title").assertTextContains(title)
+                compose.onNodeWithTag("inline-note-close").performClick()
                 compose.onNodeWithText("Discard unsaved note?").assertExists()
                 compose.onNodeWithText("Keep editing").performClick()
-                compose.onNodeWithTag("inline-note-save").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+                compose.onNodeWithTag("inline-note-save").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
                 compose.waitUntil(5000) {
-                    id = InboxStore(context).use { it.list().find { capture -> capture.text == text }?.id }; id != null
+                    id = InboxStore(context).use { it.list().find { capture -> capture.text == savedText }?.id }; id != null
                 }
-                compose.onNodeWithTag("inline-capture-saved").assertExists()
-                InboxStore(context).use { assertEquals(text, it.file(requireNotNull(id)).readText()) }
+                // One Save returns to Home after the durable write, with no Done/OK step.
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes(atLeastOneRootRequired = false).isEmpty() }
+                compose.onNodeWithTag("inline-capture-saved").assertDoesNotExist()
+                InboxStore(context).use {
+                    assertEquals(savedText, it.file(requireNotNull(id)).readText())
+                    assertEquals(1, it.list().count { capture -> capture.text == savedText })
+                }
+                home.recreate()
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("capture-text").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+                compose.onNodeWithTag("capture-text").performClick()
+                compose.onNodeWithTag("inline-note-title").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.EditableText, androidx.compose.ui.text.AnnotatedString("")))
+                compose.onNodeWithTag("inline-note-editor").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.EditableText, androidx.compose.ui.text.AnnotatedString("")))
+                compose.onNodeWithTag("inline-note-save").assertIsNotEnabled()
+                compose.onNodeWithTag("inline-note-title").performTextInput("Unsaved title only")
+                compose.onNodeWithTag("inline-note-close").performClick()
+                compose.onNodeWithText("Discard unsaved note?").assertExists()
+                compose.onNodeWithText("Discard", substring = false).performClick()
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes(atLeastOneRootRequired = false).isEmpty() }
+                compose.onNodeWithTag("capture-text").performClick()
+                compose.onNodeWithTag("inline-note-title").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.EditableText, androidx.compose.ui.text.AnnotatedString("")))
+                compose.onNodeWithTag("inline-note-save").assertIsNotEnabled()
+                assertTrue(InboxStore(context).use { it.list().none { capture -> capture.text.contains("Unsaved title only") } })
                 assertEquals("Inline capture should not open another Activity", 0, monitor.hits)
             }
         } finally {
+            ui.setOrientation(orientation)
             instrumentation.removeMonitor(monitor)
             id?.let { saved -> InboxStore(context).use { store ->
                 store.writableDatabase.delete("captures", "id=?", arrayOf(saved)); store.file(saved).delete()
