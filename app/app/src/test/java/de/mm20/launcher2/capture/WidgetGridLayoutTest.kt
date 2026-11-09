@@ -43,4 +43,16 @@ class WidgetGridLayoutTest {
         assertEquals(GridProfile.Unfolded, GridProfile.detect(700, 900, false))
         assertEquals(GridProfile.Unfolded, GridProfile.detect(580, 900, true))
     }
+    @Test fun cornerResizingAnchorsOppositeCornerAndStaysInBounds() {
+        val cell = GridCell(2, 3, 3, 4)
+        assertEquals(GridCell(1, 2, 4, 5), cell.resized(-1, -1, true, true, 8))
+        assertEquals(GridCell(2, 2, 4, 5), cell.resized(1, -1, false, true, 8))
+        assertEquals(GridCell(1, 3, 4, 5), cell.resized(-1, 1, true, false, 8))
+        assertEquals(GridCell(2, 3, 4, 5), cell.resized(1, 1, false, false, 8))
+        val top = cell.resized(-99, -99, true, true, 8)
+        assertEquals(5, top.x + top.width); assertEquals(7, top.y + top.height)
+        assertEquals(0, top.x); assertEquals(0, top.y)
+        assertEquals(GridCell(4, 6, 1, 1), cell.resized(99, 99, true, true, 8))
+        assertEquals(GridCell(2, 3, 6, 32), cell.resized(99, 99, false, false, 8))
+    }
 }

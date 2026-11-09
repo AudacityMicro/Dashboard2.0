@@ -12,6 +12,13 @@ enum class GridProfile(val columns: Int) {
 }
 
 data class GridCell(val x: Int, val y: Int, val width: Int, val height: Int) {
+    fun resized(columnDelta: Int, rowDelta: Int, startEdge: Boolean, topEdge: Boolean, columns: Int): GridCell {
+        val newX = if (startEdge) (x + columnDelta).coerceIn(0, x + width - 1) else x
+        val newY = if (topEdge) (y + rowDelta).coerceIn(maxOf(0, y + height - 32), y + height - 1) else y
+        return GridCell(newX, newY,
+            if (startEdge) x + width - newX else (width + columnDelta).coerceIn(1, columns - x),
+            if (topEdge) y + height - newY else (height + rowDelta).coerceIn(1, minOf(32, 512 - y)))
+    }
     fun intersects(other: GridCell) = x < other.x + other.width && x + width > other.x &&
         y < other.y + other.height && y + height > other.y
 }

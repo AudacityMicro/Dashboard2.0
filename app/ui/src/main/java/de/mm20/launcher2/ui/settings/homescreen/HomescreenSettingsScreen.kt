@@ -65,6 +65,8 @@ fun HomescreenSettingsScreen() {
     val viewModel: HomescreenSettingsScreenVM =
         viewModel(factory = HomescreenSettingsScreenVM.Factory)
 
+    var showGrid by remember { mutableStateOf(false) }
+    if (showGrid) de.mm20.launcher2.ui.dashboard.WidgetGridSettingsDialog { showGrid = false }
     val context = LocalContext.current
 
     val dock by viewModel.dock.collectAsStateWithLifecycle(null)
@@ -88,6 +90,7 @@ fun HomescreenSettingsScreen() {
     PreferenceScreen(title = stringResource(id = R.string.preference_screen_homescreen)) {
         item {
             PreferenceCategory {
+                Preference(title = "Widget grid", summary = "Columns and row height for Portrait, Landscape and Unfolded screens", onClick = { showGrid = true })
                 SwitchPreference(
                     title = stringResource(R.string.preference_layout_fixed_rotation),
                     summary = stringResource(R.string.preference_layout_fixed_rotation_summary),

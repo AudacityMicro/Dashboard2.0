@@ -329,7 +329,9 @@ class DashboardHomeTest {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-text").fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithTag("agent-updates").assertDoesNotExist()
-                compose.onNodeWithTag("add-task-dock").performClick()
+                compose.onNodeWithTag("add-task-dock").assertDoesNotExist()
+                compose.onNodeWithTag("search-overflow-menu").performClick()
+                compose.onNodeWithTag("add-task-menu").performClick()
                 compose.onNodeWithTag("new-task-title").performTextInput(title)
                 compose.onNodeWithText("Save task").performClick()
                 compose.waitUntil(5000) {

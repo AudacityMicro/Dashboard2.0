@@ -20,6 +20,11 @@ fun rememberNativeGridWidgets(parentId: String, editing: Boolean, onWidgetAdded:
     val context = LocalContext.current
     val host = LocalAppWidgetHost.current
     var picker by remember { mutableStateOf(false) }
+    var configuring by remember { mutableStateOf<Widget?>(null) }
+    configuring?.let { widget ->
+        de.mm20.launcher2.ui.launcher.sheets.ConfigureWidgetSheet(expanded = true, widget = widget,
+            gridManaged = true, onWidgetUpdated = model::updateWidget, onDismiss = { configuring = null })
+    }
     var removing by remember { mutableStateOf<Widget?>(null) }
     WidgetPickerSheet(expanded = picker, onDismiss = { picker = false }, onWidgetSelected = {
         model.addWidget(it); picker = false; onWidgetAdded()
@@ -34,8 +39,8 @@ fun rememberNativeGridWidgets(parentId: String, editing: Boolean, onWidgetAdded:
         }) { Text("Remove everywhere") } }, dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } }) }
     return NativeGridWidgets(widgets.orEmpty().map { widget ->
         GridTile("widget-${widget.id}", widget.getLabel(context),
-            rows = if (widget is AppWidget) ceil(widget.config.height / 56.0).toInt().coerceIn(2, 32) else 5) { modifier ->
-            WidgetItem(widget = widget, modifier = modifier, editMode = editing, gridMode = true,
+            rows = if (widget is AppWidget) ceil(widget.config.height / 56.0).toInt().coerceIn(2, 32) else 5, onConfigure = { configuring = widget }, onRemove = { removing = widget }) { modifier ->
+            WidgetItem(widget = widget, modifier = modifier, editMode = false, gridMode = true,
                 onWidgetAdd = { added, _ -> model.addWidget(added) }, onWidgetUpdate = model::updateWidget,
                 onWidgetRemove = { removing = widget })
         }
