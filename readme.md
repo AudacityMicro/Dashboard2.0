@@ -1,8 +1,8 @@
 # Dashboard2.0
 
-**[Download Android APK](https://github.com/AudacityMicro/Dashboard2.0/releases/download/v0.1.0-preview.1/Dashboard-2.0-preview.apk)**
+**[Download Android APK](https://github.com/AudacityMicro/Dashboard2.0/releases/download/v0.1.0-preview.2/Dashboard-2.0-preview.apk)**
 
-[Preview release and APK checksum](https://github.com/AudacityMicro/Dashboard2.0/releases/tag/v0.1.0-preview.1) · [Installation and Google Drive setup](DASHBOARD.md) · [Agent setup](AGENT_BOARD.md)
+[Preview release and APK checksum](https://github.com/AudacityMicro/Dashboard2.0/releases/tag/v0.1.0-preview.2) · [Installation and Google Drive setup](DASHBOARD.md) · [Agent setup](AGENT_BOARD.md)
 
 Install the APK on your Android phone and select **Dashboard** as your Home app.
 This is a preview build: local captures and tasks work offline; Google Drive sync
