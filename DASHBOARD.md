@@ -145,7 +145,17 @@ recording state; release opens the saved-note/transcript sheet. TalkBack and swi
 access can activate the voice control to start and activate again to stop, since
 they cannot sustain a physical pointer hold. The voice sheet supports holding too.
 
-Text and voice remain in the launcher's themed sheet. Photo immediately opens the installed
+Text notes open in a larger themed editor inside the launcher, with an optional
+200-character title, a multiline writing area and a fixed Save button above the
+keyboard. Tap **Save** once: after the local durable write succeeds, the editor
+closes and a brief "Note saved" message appears. There is no Done/OK confirmation.
+Closing or backing out of a nonempty title/body asks **Keep editing** or **Discard**;
+a failed save keeps the draft and editor open. Both fields survive rotation and
+Android saved-state restoration. Title and body are saved together as plain text
+(separated by a blank line), preserving the existing inbox/Drive format. Combined
+note content is limited to 65,536 characters.
+
+Voice remains in the launcher's themed sheet. Photo immediately opens the installed
 camera through Android's full-resolution `TakePicture` contract; cancel creates no
 inbox entry. The temporary camera URI uses the existing nonexported FileProvider.
 Android's camera app is needed for taking photos. Upload immediately opens Android's
@@ -478,7 +488,7 @@ portrait/landscape/unfolded appearances, while its position and size remain sepa
 ## Home quick-capture buttons
 
 The fixed bottom dock provides **Text**, **Voice** (hold), **Photo**, **Upload**. See Home capture tools above for holding, permissions, transcription
-and file import behavior. Text drafts (up to 65,536 characters) survive configuration
+and file import behavior. Note title/body drafts (up to 65,536 combined characters) survive configuration
 changes and Android saved-state restoration; closing a nonblank draft asks before
 discarding it. Force-stop before Android saves state can still lose unsaved text.
 

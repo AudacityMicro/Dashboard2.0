@@ -30,6 +30,8 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
     var mode by mutableStateOf(state.get<String>("externalMode")?.let { runCatching { InlineCaptureMode.valueOf(it) }.getOrNull() }
         ?: if (state.get<Boolean>("textOpen") == true) InlineCaptureMode.Text else null); private set
     var draft by mutableStateOf(state.get<String>("textDraft").orEmpty()); private set
+    var title by mutableStateOf(state.get<String>("textTitle").orEmpty()); private set
+    val hasTextDraft: Boolean get() = title.isNotBlank() || draft.isNotBlank()
     var busy by mutableStateOf(false); private set
     var saved by mutableStateOf(false); private set
     var error by mutableStateOf(""); private set
@@ -53,7 +55,17 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
         launchExternal = value == InlineCaptureMode.Image || value == InlineCaptureMode.File
         saved = false; error = ""; savedId = null; transcript = ""; transcription = "none"
     }
-    fun edit(value: String) { if (!busy && value.length <= 65536) { draft = value; state["textDraft"] = value; saved = false } }
+    fun edit(value: String) {
+        if (!busy && value.length + title.length + (if (title.isNotBlank()) 2 else 0) <= 65536) {
+            draft = value; state["textDraft"] = value; saved = false
+        }
+    }
+    fun editTitle(value: String) {
+        val singleLine = value.replace('\n', ' ').replace('\r', ' ')
+        if (!busy && singleLine.length <= 200 && singleLine.length + draft.length + (if (singleLine.isNotBlank()) 2 else 0) <= 65536) {
+            title = singleLine; state["textTitle"] = singleLine; saved = false
+        }
+    }
     fun permissionDenied() { error = "Microphone permission is needed to record. You can enable it in Android settings." }
     fun holdPermissionLaunched() { holdPermissionRequested = false }
     fun beginHold(fromDock: Boolean = false) {
@@ -111,14 +123,17 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
         if (busy) return
         recorder?.let { runCatching { it.stop() }; it.release() }; recorder = null; recording = false
         voiceFile?.delete(); voiceFile = null; pendingVoice = false
-        if (mode == InlineCaptureMode.Text) { draft = ""; state["textDraft"] = "" }
+        if (mode == InlineCaptureMode.Text) { draft = ""; state["textDraft"] = ""; title = ""; state["textTitle"] = "" }
         mode = null; state["textOpen"] = false; error = ""; saved = false
     }
     fun saveText() {
-        if (busy || draft.isBlank()) return
-        val text = draft
+        if (mode != InlineCaptureMode.Text || busy || !hasTextDraft) return
+        // Keep captures and Drive manifests plain text; titles need no schema migration.
+        val text = listOf(title.trim(), draft).filter { it.isNotBlank() }.joinToString("\n\n")
         commit({ InboxStore(app).use { it.save("text", "text/plain", text) } }) {
-            draft = ""; state["textDraft"] = ""
+            draft = ""; state["textDraft"] = ""; title = ""; state["textTitle"] = ""
+            close()
+            android.widget.Toast.makeText(app, "Note saved", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
     @Suppress("DEPRECATION")
@@ -189,6 +204,7 @@ class InlineCaptureViewModel(application: Application, private val state: SavedS
                 busy = false
                 if (success) { done(); saved = true }
                 else error = if (pendingVoice) "Couldn't save. Your recording is retained; tap Retry save."
+                    else if (mode == InlineCaptureMode.Text) "Couldn't save this note. Your draft is still here. Check available storage and try again."
                     else "Couldn't save. Files must be nonempty and under 25 MiB. Check available storage and try again."
             }
         }
