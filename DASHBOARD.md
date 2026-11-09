@@ -352,14 +352,21 @@ stable installations remain on stable. Errors stay visible and can be retried.
 
 Android DownloadManager downloads the APK and continues across screen rotation,
 leaving the app and process restarts. Return to the updater to resume verification
-or installation. Automatic mode immediately downloads a newer release; manual mode
-has **Download and install update**. The published GitHub asset must include a SHA-256
+or installation. Settings checks automatically, then pauses at the brief **What's new**
+summary before the user chooses **Download and install update**. The summary stays
+visible when returning to a downloaded APK; reopening a ready update does not open
+the installer automatically. The published GitHub asset must include a SHA-256
 digest and size (at most 200 MiB). Before installation, the app copies the download
 into private cache, checks its exact size/checksum, matching app package, greater
 Android versionCode and the installed signing certificate. Corrupt, truncated,
 oversized, foreign, differently signed or older APKs are rejected. A cancelled
 installer leaves the verified copy available for retry; successful app upgrades
 clear obsolete download state on the next updater visit.
+
+Published release bodies begin with a brief `What's new: …` sentence, following
+[RELEASING.md](RELEASING.md). The updater displays that sentence as plain text, with
+a first-paragraph fallback for older releases and a 160-character cap. Missing notes
+are reported explicitly. One logical line can wrap on smaller screens or large fonts.
 
 If needed, Android asks you to allow Dashboard to install updates. Return after
 granting access and approve Android's final **Update** prompt. Silent installation

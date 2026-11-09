@@ -24,6 +24,7 @@ import java.util.concurrent.Executors
 class UpdateActivity : Activity() {
     private val io = Executors.newSingleThreadExecutor()
     private lateinit var status: TextView
+    private lateinit var patchNotes: TextView
     private lateinit var checkButton: Button
     private lateinit var downloadButton: Button
     private var available: DashboardRelease? = null
@@ -32,7 +33,6 @@ class UpdateActivity : Activity() {
     private var verifying = false
     private var awaitingPermission = false
     private var active = false
-    private var installOpened = false
     private val poll = object : Runnable {
         override fun run() {
             if (isFinishing || isDestroyed || downloads.id < 0 || verifying) return
@@ -62,7 +62,6 @@ class UpdateActivity : Activity() {
         super.onCreate(savedInstanceState)
         downloads = UpdateDownload(this)
         awaitingPermission = savedInstanceState?.getBoolean("awaitingPermission") ?: false
-        installOpened = savedInstanceState?.getBoolean("installOpened") ?: false
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 24, 32, 24) }
         val scroll = ScrollView(this).apply { addView(layout) }
         ViewCompat.setOnApplyWindowInsetsListener(scroll) { view, insets ->
@@ -77,6 +76,11 @@ class UpdateActivity : Activity() {
             text = "Checks published Dashboard releases on GitHub, including previews for preview builds. No Google sign-in is needed."
         })
         status = TextView(this).also { it.accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE; layout.addView(it) }
+        patchNotes = TextView(this).also {
+            it.tag = "update-patch-notes"; it.textSize = 16f
+            it.setPadding(0, 16, 0, 16); it.visibility = android.view.View.GONE
+            layout.addView(it)
+        }
         checkButton = Button(this).also { it.text = "Check now"; it.setOnClickListener { check() }; layout.addView(it) }
         downloadButton = Button(this).also {
             it.text = "Download update"; it.visibility = android.view.View.GONE
@@ -89,8 +93,18 @@ class UpdateActivity : Activity() {
         })
         Button(this).also { it.text = "Back"; it.setOnClickListener { finish() }; layout.addView(it) }
         status.text = "Tap Check now to contact GitHub."
+        val restored = savedInstanceState?.getString("releaseTag")?.let { tag ->
+            val version = ReleaseVersion.parse(tag)
+            val current = ReleaseVersion.parse(BuildConfig.VERSION_NAME)
+            if (version != null && current != null && version > current) DashboardRelease(tag, version,
+                "${ReleaseClient.REPOSITORY}/releases/download/$tag/${ReleaseClient.APK}",
+                savedInstanceState.getString("releaseHash").orEmpty(), savedInstanceState.getLong("releaseSize"),
+                ReleaseNotes.summary(savedInstanceState.getString("releaseSummary").orEmpty())) else null
+        }
         if (downloads.ready != null) showInstall()
-        else if (downloads.id < 0 && intent.getBooleanExtra("automatic", false) && savedInstanceState == null) check()
+        else if (downloads.id >= 0) showSummary(downloads.summary)
+        else if (restored != null) showAvailableRelease(restored)
+        else if (intent.getBooleanExtra("automatic", false) && savedInstanceState == null) check()
     }
     private fun check() {
         if (downloads.ready != null) downloads.clear()
@@ -99,7 +113,7 @@ class UpdateActivity : Activity() {
             status.text = "This update channel supports the Dashboard preview APK. Use your build provider for this installation."
             return
         }
-        available = null; downloadButton.visibility = android.view.View.GONE
+        available = null; downloadButton.visibility = android.view.View.GONE; patchNotes.visibility = android.view.View.GONE
         checkButton.isEnabled = false; status.text = "Checking GitHub…"
         io.execute {
             var release: DashboardRelease? = null
@@ -117,13 +131,21 @@ class UpdateActivity : Activity() {
             runOnUiThread {
                 if (!isFinishing && !isDestroyed) {
                     status.text = message; checkButton.isEnabled = true
-                    available = release?.takeIf { it.version > version }
-                    downloadButton.text = "Download and install update"
-                    downloadButton.visibility = if (available != null) android.view.View.VISIBLE else android.view.View.GONE
-                    if (available != null && intent.getBooleanExtra("automatic", false)) download(requireNotNull(available))
+                    release?.takeIf { it.version > version }?.let { showAvailableRelease(it) }
                 }
             }
         }
+    }
+    private fun showSummary(summary: String) {
+        patchNotes.text = "What's new: ${ReleaseNotes.summary(summary)}"
+        patchNotes.visibility = android.view.View.VISIBLE
+    }
+    internal fun showAvailableRelease(release: DashboardRelease) {
+        available = release
+        status.text = "Update available: ${release.tag}"
+        showSummary(release.summary)
+        downloadButton.text = "Download and install update"
+        downloadButton.visibility = android.view.View.VISIBLE
     }
     private fun download(release: DashboardRelease) {
         try {
@@ -133,13 +155,14 @@ class UpdateActivity : Activity() {
         } catch (_: Exception) { status.text = "Couldn't start a verified download. Check your connection and try again."; checkButton.isEnabled = true }
     }
     private fun showInstall() {
-        status.text = "Update verified and ready to install."
+        val label = downloads.tag.takeIf { it.isNotBlank() }?.let { "Update $it" } ?: "Update"
+        status.text = "$label verified and ready to install."
+        showSummary(downloads.summary)
         downloadButton.text = "Install update"; downloadButton.visibility = android.view.View.VISIBLE
         checkButton.isEnabled = true
     }
     private fun install() {
         val file = downloads.ready ?: return
-        installOpened = true
         try {
             if (!packageManager.canRequestPackageInstalls()) {
                 awaitingPermission = true
@@ -164,10 +187,16 @@ class UpdateActivity : Activity() {
                 if (packageManager.canRequestPackageInstalls()) install()
                 else status.text = "Installation permission was not granted. Tap Install update when ready."
             }
-            else if (downloads.ready != null && intent.getBooleanExtra("automatic", false) && !installOpened) install()
         }
     }
     override fun onPause() { active = false; main.removeCallbacks(poll); super.onPause() }
-    override fun onSaveInstanceState(outState: Bundle) { outState.putBoolean("awaitingPermission", awaitingPermission); outState.putBoolean("installOpened", installOpened); super.onSaveInstanceState(outState) }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("awaitingPermission", awaitingPermission)
+        available?.let { release ->
+            outState.putString("releaseTag", release.tag); outState.putString("releaseHash", release.sha256)
+            outState.putLong("releaseSize", release.size); outState.putString("releaseSummary", release.summary)
+        }
+        super.onSaveInstanceState(outState)
+    }
     override fun onDestroy() { main.removeCallbacks(poll); io.shutdown(); super.onDestroy() }
 }

@@ -5,7 +5,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 internal data class DashboardRelease(val tag: String, val version: ReleaseVersion, val download: String,
-    val sha256: String = "", val size: Long = 0)
+    val sha256: String = "", val size: Long = 0, val summary: String = ReleaseNotes.UNAVAILABLE)
 internal class ReleaseCheckFailure(val status: Int) : java.io.IOException()
 
 internal object ReleaseClient {
@@ -31,7 +31,8 @@ internal object ReleaseClient {
                 }
             }.firstOrNull()
             if (found != null) DashboardRelease(tag, version, expected,
-                found.optString("digest").removePrefix("sha256:"), found.optLong("size")) else null
+                found.optString("digest").removePrefix("sha256:"), found.optLong("size"),
+                ReleaseNotes.summary(release.opt("body") as? String ?: "")) else null
         }.maxByOrNull { it.version }
     }
 
