@@ -213,7 +213,7 @@ The existing manifest schema stays version 1 with additive optional fields. The
 selected payload(s) are uploaded before the manifest. Voice manifests add
 `voiceMode`, `originalMimeType` and `transcriptFileId`; transcript-only captures
 use `mimeType: text/plain` and point `driveFileId` at the text file. Audio-only
-metadata has empty `text` and no transcript file ID. Starter guide version 7
+metadata has empty `text` and no transcript file ID. Starter guide version 8
 explains these fields, uncertainty and safe document handling. Existing Drive guides
 remain user-owned; copy the new setup prompt to the agent to merge the guidance.
 
@@ -418,7 +418,7 @@ handles daylight-saving changes and keeps unchanged checks quiet. The launcher
 cannot schedule another agent itself; unsupported agents must explain that and
 check on demand. The user can change the default hours and timezone.
 
-Starter guide version 7 allows agents to maintain that guide, checkpoint durable
+Starter guide version 8 allows agents to maintain that guide, checkpoint durable
 memory before context compaction, and connect email/calendar through their own tools.
 These are instructions for the agent, not additional launcher integrations. For an
 existing Drive guide, copy the updated prompt to your agent so it can merge the new
@@ -530,3 +530,18 @@ Passive shares and legacy quick-capture shortcuts retain their Activity behavior
 ### Voice hold feedback
 
 While recording, the Voice button grows to more than twice its idle height and becomes wider in the capture dock. Once a press starts recording, moving the original finger outside the button (including across other controls or into the scrolling dashboard) keeps recording active. Lifting that finger saves once. Genuine system cancellation or leaving the launcher still stops and saves the microphone safely; accessibility activation continues to toggle start/stop.
+
+### Markdown dashboard updates
+
+Agent update bodies now render Markdown with the launcher's existing styling and
+colors: headings, emphasis, lists, quotes, code and tapped http/https links. Plain
+text remains compatible. Titles and task fields stay plain text. Markdown checklist
+items are read-only; the separate to-do widget keeps its working checkboxes. No HTML
+or embedded images are rendered. Existing Drive JSON file IDs and schema stay the
+same: the agent puts Markdown in `updates[].body`, escaping newlines inside JSON.
+
+Starter agent guide version 8 and the copyable setup prompt describe the format.
+For an existing agent, copy the updated setup prompt and ask it to merge the guidance
+into its current Drive instructions; the launcher does not overwrite those files.
+Markdown content remains available offline and participates in normal widget
+scrolling, resizing and automatic height.
