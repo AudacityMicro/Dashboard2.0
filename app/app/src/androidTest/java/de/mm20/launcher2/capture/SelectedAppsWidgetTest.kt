@@ -91,7 +91,7 @@ class SelectedAppsWidgetTest {
                 show()
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("widget-picker-list").fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithTag("widget-picker-list").performScrollToNode(hasText("Selected apps"))
-                compose.onNodeWithText("Selected apps").performClick()
+                compose.onNodeWithText("Selected apps").performSemanticsAction(SemanticsActions.OnClick) { it() }
                 compose.waitUntil(5000) { chosen.value != null }
                 val widget = requireNotNull(chosen.value)
                 val tag = "selected-apps-${widget.id}"
