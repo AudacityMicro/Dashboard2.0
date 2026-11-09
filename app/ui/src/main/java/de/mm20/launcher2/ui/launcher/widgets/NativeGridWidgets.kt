@@ -39,7 +39,7 @@ fun rememberNativeGridWidgets(parentId: String, editing: Boolean, onWidgetAdded:
             removing = null
         }) { Text("Remove everywhere") } }, dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } }) }
     return NativeGridWidgets(widgets.orEmpty().map { widget ->
-        val iconsOnly = widget is AppsWidget && widget.config.favoritesOnly
+        val iconsOnly = widget is AppsWidget && (widget.config.favoritesOnly || widget.config.selectedOnly)
         val rows = when {
             widget is AppWidget -> ceil(widget.config.height / 56.0).toInt().coerceIn(2, 32)
             iconsOnly -> 3
