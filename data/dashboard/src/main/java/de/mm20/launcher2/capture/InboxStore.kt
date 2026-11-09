@@ -50,7 +50,7 @@ class InboxStore(private val context: Context) : SQLiteOpenHelper(context,
             })
         } catch (e: Exception) { temp.delete(); file(id).delete(); throw e }
         // Scheduling failure never rolls back a committed local capture; periodic recovery repairs it.
-        runCatching { SyncQueue.enqueue(context.applicationContext) }
+        runCatching { context.sendBroadcast(android.content.Intent("${context.packageName}.dashboard.SYNC").setPackage(context.packageName)) }
         return id
     }
     fun list(): List<Capture> = readableDatabase.rawQuery("SELECT * FROM captures ORDER BY created DESC", null).use { c ->

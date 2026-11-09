@@ -273,9 +273,21 @@ Google testing; transport integration tests use a local fake server without cred
 ## Home quick-capture buttons
 
 The home tab provides **Text note**, **Voice note**, and **Add image** directly above
-Agent updates. Text note opens the focused editor and keyboard; Voice note requests
-microphone permission when needed and starts recording; Add image opens the system
-image picker. Picker cancellation leaves existing data unchanged. These automatic
-capture actions use a non-exported activity, so external share intents cannot trigger
-an automatic microphone recording. The regular Inbox entry remains available for
-reviewing captures and configuring Google Drive.
+Agent updates. Each opens the launcher's themed bottom sheet without leaving Home.
+Text note focuses the editor; save commits to the same offline inbox. Unsaved text
+(up to 65,536 characters) survives configuration changes and Android saved-state
+restoration; closing a nonblank draft asks before discarding it. Force-stop or abrupt
+process loss before Android saves state can still lose an unsaved draft.
+
+Voice note shows **Start recording**, a timer, and **Stop and save**. Microphone
+permission is requested only on Start. Closing an active recording saves and closes;
+leaving the foreground stops and saves it, including on rotation. No background mic
+service is used. Limits remain 10 minutes/25 MiB. A failed inbox commit retains the
+completed recording and offers **Retry save** in the sheet; discarding it is explicit.
+After abrupt process death, private staging recordings still require manual recovery.
+
+Add image offers the system image picker from its sheet; cancelling leaves captures
+unchanged. All saves use shared app-private storage and enqueue the existing Drive
+worker through the internal sync receiver. The regular Inbox and passive external
+share entry remain available for reviewing captures and configuring Drive. Existing
+quick-capture shortcuts retain their original Activity-based behavior.

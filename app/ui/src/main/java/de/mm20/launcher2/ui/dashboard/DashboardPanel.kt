@@ -18,6 +18,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import de.mm20.launcher2.dashboard.*
 import kotlinx.coroutines.*
+import android.app.Application
+import androidx.lifecycle.createSavedStateHandle
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun DashboardPanel(modifier: Modifier = Modifier) {
@@ -25,6 +30,9 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
     val app = context.applicationContext
     val lifecycle = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    val capture: InlineCaptureViewModel = viewModel(factory = viewModelFactory {
+        initializer { InlineCaptureViewModel(app as Application, createSavedStateHandle()) }
+    })
     var board by remember { mutableStateOf(DashboardSnapshot(emptyList(), emptyList(), "", 0)) }
     var error by remember { mutableStateOf("") }
     var adding by rememberSaveable { mutableStateOf(false) }
@@ -90,8 +98,7 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
                     listOf("text" to "Text note", "voice" to "Voice note", "image" to "Add image").forEach { (mode, label) ->
                         FilledTonalButton(modifier = Modifier.weight(1f).testTag("capture-$mode"),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp), onClick = {
-                                context.startActivity(Intent().setClassName(context.packageName,
-                                    "de.mm20.launcher2.capture.QuickCaptureActivity").putExtra("capture_mode", mode))
+                                capture.open(when (mode) { "text" -> InlineCaptureMode.Text; "voice" -> InlineCaptureMode.Voice; else -> InlineCaptureMode.Image })
                             }) { Text(label) }
                     }
                 }
@@ -153,6 +160,7 @@ fun DashboardPanel(modifier: Modifier = Modifier) {
             }
         }
     }
+    InlineCaptureSheet(capture)
     if (adding) AlertDialog(
         onDismissRequest = { adding = false }, title = { Text("New task") },
         text = { Column {
