@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+import kotlin.math.ceil
 
 object GridEditing {
     var target by mutableStateOf<String?>(null)
@@ -39,6 +40,7 @@ object GridEditing {
 }
 data class GridTile(val id: String, val label: String, val rows: Int = 4, val visible: Boolean = true,
     val onConfigure: (() -> Unit)? = null, val onRemove: (() -> Unit)? = null,
+    val supportsAutoHeight: Boolean = false,
     val content: @Composable (Modifier) -> Unit)
 
 @Composable
@@ -67,6 +69,7 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var layout by remember(parent, profile) { mutableStateOf(WidgetGridLayout(profile.columns)) }
+    var contentPixels by remember(parent, profile) { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var loaded by remember(parent, profile) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
@@ -82,7 +85,8 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
     LaunchedEffect(loaded, tiles.map { it.id to it.visible }, editing) {
         if (loaded) {
             val ids = tiles.map { it.id }.toSet()
-            var next = layout.copy(cells = layout.cells.filterKeys { it in ids }, hidden = layout.hidden.intersect(ids))
+            var next = layout.copy(cells = layout.cells.filterKeys { it in ids }, hidden = layout.hidden.intersect(ids),
+                autoHeights = layout.autoHeights.filterKeys { it in ids })
             tiles.filter { it.visible || editing }.forEach { tile ->
                 try { next = next.add(tile.id, tile.rows, if (profile == GridProfile.Portrait || tile.id == "setup") next.columns else next.columns / 2) }
                 catch (_: IllegalStateException) { error = "Grid full. Make existing widgets smaller to add more." }
@@ -102,8 +106,27 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
             finally { busy = false }
         }
     }
+    val density = LocalDensity.current
+    val rowPixels = with(density) { layout.rowDp.dp.toPx() }
+    val gutterPixels = with(density) { 8.dp.toPx() }
+    val shown = tiles.filter { (it.visible || editing) && it.id !in layout.hidden && it.id in layout.cells }
+    val shownIds = shown.map { it.id }.toSet()
+    val automaticIds = tiles.filter { it.supportsAutoHeight }.map { it.id }.toSet()
+    val display = layout.copy(cells = layout.cells.filterKeys { it in shownIds },
+        autoHeights = layout.autoHeights.filterKeys { it in automaticIds && it in shownIds })
+        .withContentHeights(contentPixels.mapValues { (_, pixels) -> ceil((pixels + gutterPixels) / rowPixels).toInt().coerceAtLeast(1) })
     fun place(id: String, cell: GridCell) {
-        try { save(layout.place(id, cell), id) } catch (failure: Exception) { if (failure is kotlinx.coroutines.CancellationException) throw failure; error = "No space for that size or position." }
+        try {
+            val automatic = layout.autoHeights[id]?.takeIf { it.enabled && id in automaticIds }
+            // A vertical corner resize changes the automatic maximum; moving preserves it.
+            val next = if (automatic != null && cell.height != display.cells[id]?.height)
+                layout.copy(autoHeights = layout.autoHeights + (id to automatic.copy(maxRows = cell.height.coerceIn(1, 32)))) else layout
+            val anchor = layout.cells[id] ?: cell
+            val current = display.cells[id] ?: anchor
+            val desired = cell.copy(y = anchor.y + cell.y - current.y,
+                height = if (automatic != null) anchor.height else cell.height)
+            save(next.place(id, desired), id)
+        } catch (failure: Exception) { if (failure is kotlinx.coroutines.CancellationException) throw failure; error = "No space for that size or position." }
     }
     LaunchedEffect(profile, editing) { if (!editing) activeTile = null; selected = null; hiddenDialog = false }
     BackHandler(editing) { if (!busy) { activeTile = null; onDone() } }
@@ -123,8 +146,7 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
         }
         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
         if (loaded) {
-            val grid = layout
-            val shown = tiles.filter { (it.visible || editing) && it.id !in grid.hidden && it.id in grid.cells }
+            val grid = display
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val density = LocalDensity.current
                 val stepX = with(density) { (maxWidth / grid.columns).toPx() }
@@ -137,7 +159,10 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
                             selected = editing && activeTile == tile.id, editing = editing, enabled = !busy,
                             onSelect = { activeTile = tile.id; GridEditing.target = parent },
                             onPlace = { place(tile.id, it) }, onExactSize = { selected = tile.id }) {
-                            CompositionLocalProvider(LocalAppGridWidth provides maxWidth) {
+                            CompositionLocalProvider(LocalAppGridWidth provides maxWidth,
+                                LocalGridContentHeight provides if (tile.supportsAutoHeight && layout.autoHeights[tile.id]?.enabled == true) ({ pixels: Int ->
+                                    if (contentPixels[tile.id] != pixels) contentPixels = contentPixels + (tile.id to pixels)
+                                }) else null) {
                                 tile.content(Modifier.fillMaxSize())
                             }
                         }
@@ -161,11 +186,16 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
         }
     }
     }
-    selected?.let { id -> layout.cells[id]?.let { cell ->
-        var x by remember(id, cell) { mutableStateOf(cell.x.toString()) }
-        var y by remember(id, cell) { mutableStateOf(cell.y.toString()) }
-        var w by remember(id, cell) { mutableStateOf(cell.width.toString()) }
-        var h by remember(id, cell) { mutableStateOf(cell.height.toString()) }
+    selected?.let { id -> (display.cells[id] ?: layout.cells[id])?.let { cell ->
+        val originalDisplay = remember(id, profile) { cell }
+        val anchor = remember(id, profile) { layout.cells.getValue(id) }
+        var x by remember(id, profile) { mutableStateOf(cell.x.toString()) }
+        var y by remember(id, profile) { mutableStateOf(cell.y.toString()) }
+        var w by remember(id, profile) { mutableStateOf(cell.width.toString()) }
+        var h by remember(id, profile) { mutableStateOf(cell.height.toString()) }
+        val supportsAuto = id in automaticIds
+        var automatic by remember(id, profile) { mutableStateOf(layout.autoHeights[id]?.enabled == true) }
+        var maximum by remember(id, profile) { mutableStateOf((layout.autoHeights[id]?.maxRows ?: 12).toString()) }
         AlertDialog(onDismissRequest = { selected = null }, title = { Text("Position and size") }, text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Column and row start at 0. Sizes snap to this profile’s grid.")
@@ -178,11 +208,34 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
                 OutlinedTextField(x, { x = it }, label = { Text("Column") }, modifier = Modifier.testTag("grid-edit-x"), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 OutlinedTextField(y, { y = it }, label = { Text("Row") }, modifier = Modifier.testTag("grid-edit-y"), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 OutlinedTextField(w, { w = it }, label = { Text("Width in columns") }, modifier = Modifier.testTag("grid-edit-w"), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                OutlinedTextField(h, { h = it }, label = { Text("Height in rows") }, modifier = Modifier.testTag("grid-edit-h"), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                OutlinedTextField(h, { h = it }, enabled = !supportsAuto || !automatic, label = { Text("Height in rows") }, modifier = Modifier.testTag("grid-edit-h"), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                if (supportsAuto) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Automatic height", Modifier.weight(1f))
+                        Switch(checked = automatic, onCheckedChange = { automatic = it }, modifier = Modifier.testTag("grid-auto-height"))
+                    }
+                    if (automatic) {
+                        OutlinedTextField(maximum, { maximum = it }, label = { Text("Maximum height in rows") },
+                            modifier = Modifier.testTag("grid-auto-max"), singleLine = true,
+                            isError = maximum.toIntOrNull() !in 1..32, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        Text("Grows and shrinks with content, up to 1–32 rows. Extra content scrolls. Vertical corner resizing changes this maximum.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
-        }, confirmButton = { TextButton(enabled = listOf(x, y, w, h).all { it.toIntOrNull() != null }, onClick = {
+        }, confirmButton = { TextButton(enabled = listOf(x, y, w, h).all { it.toIntOrNull() != null } &&
+            (!supportsAuto || !automatic || maximum.toIntOrNull() in 1..32), onClick = {
             val values = listOf(x, y, w, h).map { it.toIntOrNull() }
-            if (values.all { it != null }) { place(id, GridCell(values[0]!!, values[1]!!, values[2]!!, values[3]!!)); selected = null }
+            if (values.all { it != null }) {
+                try {
+                    val next = if (supportsAuto) layout.copy(autoHeights = layout.autoHeights +
+                        (id to GridAutoHeight(automatic, maximum.toIntOrNull()?.coerceIn(1, 32) ?: 12))) else layout
+                    val desired = GridCell(values[0]!!, anchor.y + values[1]!! - originalDisplay.y,
+                        values[2]!!, if (supportsAuto && automatic) anchor.height else values[3]!!)
+                    save(if (desired == anchor) next else next.place(id, desired), id)
+                    selected = null
+                } catch (failure: Exception) { if (failure is kotlinx.coroutines.CancellationException) throw failure; error = "No space for that size or position." }
+            }
         }) { Text("Save layout") } }, dismissButton = {
             Row {
                 TextButton(onClick = { save(layout.copy(hidden = layout.hidden + id)); selected = null }) { Text("Hide") }

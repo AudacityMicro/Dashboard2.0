@@ -92,6 +92,21 @@ cannot fit, the previous settings/layouts remain. New pages inherit the profile'
 density. Widget spans cover 1–12 columns (within the grid) and 1–32 rows on a
 vertically scrolling canvas bounded at 512 rows.
 
+Dashboard cards (Updates, Tasks, Setup and Connection) also offer **Automatic height**
+in their position-and-size dialog. Long-press the widget, tap a handle (or choose
+the widget from **Widgets**), enable the switch, set **Maximum height in rows**
+(1–32), then **Save layout**. Width stays on the grid; height follows the actual
+wrapped content, task visibility and font size. Content beyond the maximum scrolls
+inside the card. Turn the switch off to use **Height in rows** as a fixed size.
+Vertical corner resizing while enabled adjusts the automatic maximum.
+
+Automatic height is off for existing layouts. The toggle and maximum are independent
+for each widget and active portrait/landscape/unfolded layout. Following widgets
+move down or back up as content grows or shrinks, retaining manual gaps and saved
+positions. Calculated display sizes never overwrite those saved positions. If the
+512-row canvas cannot accommodate growth, cards keep safe capped viewports and
+scroll their content. External Android widgets retain their provider-defined behavior.
+
 **Portrait**, **Landscape**, and **Unfolded** retain independent saved positions,
 sizes and hidden-widget choices for Home and every widget page. Selection follows
 the current window automatically. Jetpack WindowManager folding features select
