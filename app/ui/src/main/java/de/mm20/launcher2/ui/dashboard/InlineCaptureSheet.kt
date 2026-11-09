@@ -1,7 +1,6 @@
 package de.mm20.launcher2.ui.dashboard
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,7 +15,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
@@ -29,16 +27,18 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun InlineCaptureSheet(model: InlineCaptureViewModel) {
-    val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
     val keyboard = LocalSoftwareKeyboardController.current
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
-    var permissionPending by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (permissionPending && model.mode == InlineCaptureMode.Voice && lifecycle.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            if (granted) model.startVoice() else model.permissionDenied()
+        // A permission dialog ends the original hold. Require a fresh press after granting.
+        if (!granted) model.permissionDenied()
+    }
+    LaunchedEffect(model.holdPermissionRequested) {
+        if (model.holdPermissionRequested) {
+            model.holdPermissionLaunched()
+            permission.launch(Manifest.permission.RECORD_AUDIO)
         }
-        permissionPending = false
     }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) model.importFile(uri)
@@ -65,14 +65,13 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
     }
     fun dismiss() {
         if (model.busy) return
-        permissionPending = false
         when {
             model.recording -> model.stopAndSave(closeWhenSaved = true)
             model.pendingVoice || (model.mode == InlineCaptureMode.Text && model.draft.isNotBlank()) -> confirmDiscard = true
             else -> { keyboard?.hide(); model.close() }
         }
     }
-    BottomSheet(state = model.mode, expanded = { it != null }, onDismissRequest = { dismiss() }) { mode ->
+    BottomSheet(state = model.mode, expanded = { it != null && !(model.holding && model.holdFromDock) }, onDismissRequest = { dismiss() }) { mode ->
         Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState())
             .padding(24.dp).navigationBarsPadding().testTag("inline-capture-sheet"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(when (mode) {
@@ -117,16 +116,12 @@ fun InlineCaptureSheet(model: InlineCaptureViewModel) {
                         }
                         Text("%02d:%02d".format(elapsed / 60, elapsed % 60), style = MaterialTheme.typography.displayMedium,
                             modifier = Modifier.testTag("inline-voice-timer"))
-                        Text(if (model.recording) "Recording. Saves when you leave Home."
-                            else "Tap to record. Up to 10 minutes. English transcription runs automatically on this phone after saving.")
-                        Button(onClick = {
-                            if (model.recording) model.stopAndSave()
-                            else if (model.pendingVoice) model.saveVoice()
-                            else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) model.startVoice()
-                            else { permissionPending = true; permission.launch(Manifest.permission.RECORD_AUDIO) }
-                        }, enabled = !model.busy, modifier = Modifier.fillMaxWidth().testTag("inline-voice-record")) {
-                            Text(if (model.recording) "Stop and save" else if (model.pendingVoice) "Retry save" else "Start recording")
-                        }
+                        Text(if (model.recording) "Release to save. Also saves when you leave Home."
+                            else "Hold to record; release to save. Up to 10 minutes. English transcription runs automatically on this phone after saving.")
+                        if (model.pendingVoice) Button(onClick = { model.saveVoice() }, enabled = !model.busy,
+                            modifier = Modifier.fillMaxWidth().testTag("inline-voice-retry")) { Text("Retry save") }
+                        else HoldToRecordButton(model, Modifier.fillMaxWidth().testTag("inline-voice-record"))
+
                     }
                     InlineCaptureMode.Image, InlineCaptureMode.File -> Button(onClick = model::requestExternal, enabled = !model.busy,
                         modifier = Modifier.fillMaxWidth()) { Text(if (mode == InlineCaptureMode.Image) "Open camera" else "Choose image or file") }

@@ -62,9 +62,8 @@ class LauncherScaffoldVM : ViewModel(), KoinComponent {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
     val fixedSearchBar = uiSettings.fixedSearchBar
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
-    val fixedRotation = uiSettings.orientation
-        .map { it != ScreenOrientation.Auto }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
+    val orientation = uiSettings.orientation
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), ScreenOrientation.Auto)
 
     val widgetsOnHomeScreen = uiSettings.homeScreenWidgets
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)

@@ -1,8 +1,8 @@
 # Dashboard2.0
 
-**[Download Android APK](https://github.com/AudacityMicro/Dashboard2.0/releases/download/v0.1.0-preview.3/Dashboard-2.0-preview.apk)**
+**[Download Android APK](https://github.com/AudacityMicro/Dashboard2.0/releases/download/v0.1.0-preview.4/Dashboard-2.0-preview.apk)**
 
-[Preview release and APK checksum](https://github.com/AudacityMicro/Dashboard2.0/releases/tag/v0.1.0-preview.3) · [Installation and Google Drive setup](DASHBOARD.md) · [Agent setup](AGENT_BOARD.md)
+[Preview release and APK checksum](https://github.com/AudacityMicro/Dashboard2.0/releases/tag/v0.1.0-preview.4) · [Installation and Google Drive setup](DASHBOARD.md) · [Agent setup](AGENT_BOARD.md)
 
 [Website](https://audacitymicro.github.io/Dashboard2.0/) · [Privacy policy](https://audacitymicro.github.io/Dashboard2.0/privacy.html) · [Terms](https://audacitymicro.github.io/Dashboard2.0/terms.html)
 

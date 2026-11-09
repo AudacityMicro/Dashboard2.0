@@ -10,6 +10,7 @@ import de.mm20.launcher2.widgets.Widget
 import de.mm20.launcher2.widgets.WidgetRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.UUID
@@ -24,11 +25,11 @@ class WidgetsVM(
     val editButton = uiSettings.widgetEditButton
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
 
-    val widgets = widgetRepository.get(parent = parentId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
+    val widgets: StateFlow<List<Widget>?> = widgetRepository.get(parent = parentId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
 
     fun addWidget(widget: Widget, index: Int? = null) {
-        val widgets = widgets.value.toMutableList()
+        val widgets = widgets.value.orEmpty().toMutableList()
         if (index == null) {
             widgets.add(widget)
         } else {
@@ -46,14 +47,14 @@ class WidgetsVM(
     }
 
     fun moveUp(index: Int) {
-        val widgets = widgets.value.toMutableList()
+        val widgets = widgets.value.orEmpty().toMutableList()
         val widget = widgets.removeAt(index)
         widgets.add(index - 1, widget)
         widgetRepository.set(widgets, parentId)
     }
 
     fun moveDown(index: Int) {
-        val widgets = widgets.value.toMutableList()
+        val widgets = widgets.value.orEmpty().toMutableList()
         val widget = widgets.removeAt(index)
         widgets.add(index + 1, widget)
         widgetRepository.set(widgets, parentId)

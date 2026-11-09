@@ -60,10 +60,81 @@ least-privilege `drive.file` scope. Each capture produces:
 - `Dashboard-<uuid>.json`: UTF-8 record with `schemaVersion`, `id`, `createdAt` (UTC),
   `kind`, `mimeType`, `text`, `driveFileId`, and `source`.
 
+### Movable widgets and screen layouts
+
+Home's large section headings are removed. Empty agent-update and task sections
+are hidden; a list containing completed tasks still has a small completed-count
+control. Setup retains its existing Hide setup preference, and the connection
+widget appears only when Drive needs connection attention.
+
+Open the search bar's three-dot menu and choose **Edit layout**. Dashboard sections
+and regular widgets use the same two-dimensional grid. Drag **Move** horizontally
+and vertically, drag **Resize**, or tap a size to enter exact column, row, width and
+height. **Widgets** also opens precise placement for very small widgets and lets
+you restore hidden items. Use **Grid** to choose 2–12 columns and 40–120 dp row
+height. Widget spans can cover 1–12 columns (within the current grid) and 1–32 rows.
+The canvas scrolls vertically and has a 512-row bound. Crowded placements push
+intersecting widgets down rather than overlapping or losing their configuration.
+Controls can be clipped at extremely small spans while editing; use **Widgets**
+for numeric editing, then Done to see the normal full widget content.
+
+**Portrait**, **Landscape**, and **Unfolded** have independent saved positions,
+sizes, grid density and hidden-widget choices, for Home and for each widget page.
+Choose a profile in the editor to prepare it even on another screen size. Done
+returns to automatic selection. Normal windows use their current orientation;
+Jetpack WindowManager folding features select Unfolded, with a minimum window
+width/height of 600 dp as the large-screen fallback. Tablets and large windows
+therefore also use Unfolded. Layout selection follows the available app window,
+including resizing/multi-window. The launcher's Auto/Portrait/Landscape orientation
+preference is honored; Auto still respects Android's rotation setting.
+
+**Hide** affects only the selected profile and does not delete notes or widget
+data. **Show** in Widgets restores it. Empty dashboard sections are visible as
+placeholders in the editor so you can size them before content arrives. Regular
+widget content/configuration is shared across profiles; native Android widget IDs
+are reused, with width and height updated for the active profile. Existing provider
+configuration is retained. Removing a regular widget everywhere asks explicitly;
+it is different from hiding it in one profile.
+
+The existing Home widgets preference is preserved: built-in widgets are not dumped
+onto a dashboard-only home. Adding or placing a regular widget enables Home widgets
+when you finish editing. Existing widgets remain available in the editor and on
+their original widget pages. Android widget providers may have minimum useful
+sizes; a very small box can clip their content. Resize larger if necessary.
+
+Layouts are stored privately in the backup-excluded dashboard database under
+`grid.v1.<page>.<profile>` with a versioned, validated JSON schema. They survive app
+upgrades but are not synchronized through the agent board. Agent content, task
+completion, widget configuration and OAuth state use their existing storage.
+Malformed stored layouts report an error and are retained instead of overwritten.
+
+Grid tests cover packing in rows/columns, drag/resize collision handling, bounded
+sizes, independent profile persistence/visibility, configuration changes and
+recreation, native Android widget width/height options, and actual window rotation
+plus an expanded emulator display. Physical folding transitions, occluding hinges,
+provider-specific minimum sizes and multi-window resizing need device acceptance.
+Screenshot tests use explicit sample content and restore prior local state. Only
+when screenshots are requested on an SDK emulator do they temporarily change its
+display size; the original size is restored afterward.
+
 ### Home capture tools
 
-The four Home buttons are **Text**, **Voice**, **Photo** and **Upload**. Text and
-voice remain in the launcher's themed sheet. Photo immediately opens the installed
+The four Home controls are **Text**, **Voice** (hold), **Photo** and **Upload**. They
+stay in a bottom dock while the dashboard widgets scroll above them.
+Dashboard cards use the same surface transparency and card styling as launcher
+widgets. The search bar's three-dot menu includes **Update launcher**, so updates
+remain available after setup is hidden.
+
+Hold Voice begins recording on pointer down, with no long-press delay; releasing
+or cancelling the gesture stops and saves exactly once. Leaving the foreground also
+stops and saves. First use requests microphone permission and requires a fresh hold
+after granting it; it never starts recording behind a permission dialog. Very short
+recordings may be rejected by Android and show a retry message. The dock shows the
+recording state; release opens the saved-note/transcript sheet. TalkBack and switch
+access can activate the voice control to start and activate again to stop, since
+they cannot sustain a physical pointer hold. The voice sheet supports holding too.
+
+Text and voice remain in the launcher's themed sheet. Photo immediately opens the installed
 camera through Android's full-resolution `TakePicture` contract; cancel creates no
 inbox entry. The temporary camera URI uses the existing nonexported FileProvider.
 Android's camera app is needed for taking photos. Upload immediately opens Android's
@@ -221,22 +292,36 @@ regressions require device validation; do not equate a compile with these checks
 
 ## Dashboard updates
 
-Tap **Check for updates** on the home setup card or **Check for Dashboard updates**
-in Capture inbox, then **Check now**. This manual check contacts the public GitHub
-releases API without Google credentials. It examines the 30 most recent published
-releases, skips drafts/missing APKs and compares Dashboard versions numerically.
-Preview builds include preview releases; a future stable build stays on stable.
-Offline, rate-limit and server errors remain visible and can be retried.
+Tap **Settings → Update launcher from GitHub** for a one-button check, download and
+installation flow. The search bar's **Update launcher** menu item, home setup link
+and Inbox update link also open the updater; those paths start with **Check now**.
+Only public Dashboard GitHub releases are checked, without Google credentials.
+The newest compatible published version is selected from the 30 most recent
+releases. Drafts/missing APKs are skipped; previews can receive previews and future
+stable installations remain on stable. Errors stay visible and can be retried.
 
-**Download update** opens the official repository's APK URL in your browser. Open
-the downloaded APK and approve Android's update prompt. Android verifies the installed
-package's signing certificate. Install over the app; uninstalling removes private,
-unsynced data. No background checks, automatic downloads or silent installs occur.
+Android DownloadManager downloads the APK and continues across screen rotation,
+leaving the app and process restarts. Return to the updater to resume verification
+or installation. Automatic mode immediately downloads a newer release; manual mode
+has **Download and install update**. The published GitHub asset must include a SHA-256
+digest and size (at most 200 MiB). Before installation, the app copies the download
+into private cache, checks its exact size/checksum, matching app package, greater
+Android versionCode and the installed signing certificate. Corrupt, truncated,
+oversized, foreign, differently signed or older APKs are rejected. A cancelled
+installer leaves the verified copy available for retry; successful app upgrades
+clear obsolete download state on the next updater visit.
+
+If needed, Android asks you to allow Dashboard to install updates. Return after
+granting access and approve Android's final **Update** prompt. Silent installation
+is not supported. Install over the app; uninstalling removes private unsynced data.
+No periodic update polling is enabled; checks/downloads begin from your action.
 This channel supports the default debug package distributed in Dashboard previews;
-other build types must use their own provider.
+other build types must use their own provider. Installing a future published
+release, OEM installer handling and download recovery still need physical-device
+acceptance testing; automated tests cover integrity/identity rejection and UI entry.
 
 Maintainers: tag releases `vMAJOR.MINOR.PATCH-preview.NUMBER` or `vMAJOR.MINOR.PATCH`;
-publish a fully uploaded `Dashboard-2.0-preview.apk` asset. Keep `versionName` aligned
+publish a fully uploaded `Dashboard-2.0-preview.apk` asset with its GitHub SHA-256 digest. Keep `versionName` aligned
 with the tag and increment Android `versionCode` for every distributed build (including
 CI overrides). Continue signing published updates with the same private signing key.
 CI's temporary debug keys cannot update the locally signed preview installation.
@@ -255,7 +340,9 @@ Staging-file recovery is not yet exposed in the UI.
 Tap **Hide setup** on the home setup card whenever you are ready to clear the setup
 controls from Home. The choice persists across launcher restarts and app updates.
 It hides the setup card and file-ID button, while capture actions, agent updates,
-task controls and operational sync status remain available. Open **Capture inbox**
+task controls remain available. Connection information appears only when Drive is
+disconnected, paused or needs sign-in; successful sync timestamps/status are hidden.
+Open the three-dot menu’s **Capture inbox / Drive setup**
 to reconnect Drive, copy the setup prompt/file IDs or check for updates. Turn on
 **Show setup on home screen** there to restore the home setup controls. Hiding setup
 does not change your connections, tasks or captures; setup completion is your choice.
@@ -286,8 +373,8 @@ for approval, not performed automatically because a note reaches 30 days. The ap
 itself does not move notes or enforce retention, and Drive moves do not remove
 the phone's local originals.
 
-The main/home tab now shows quick-capture buttons, **Agent updates** and a **To-do list**,
-plus any enabled home widgets. Add a task or check/uncheck it directly on the phone;
+The main/home tab shows a bottom capture dock and a grid of agent updates, tasks
+and enabled widgets. Updates and task widgets hide when empty and have no large section headings. Add a task or check/uncheck it directly on the phone;
 changes are saved offline immediately. Completed tasks can be shown or hidden. Search
 and app launching keep their existing gestures. The large home clock and charging block are removed so the dashboard starts near the
 top of the screen.
@@ -299,16 +386,18 @@ When Drive is connected, the same durable worker also creates and synchronizes:
 - `Dashboard-phone-tasks.json`: phone-owned merged task snapshot. Your agent reads this
   to see phone-added tasks and the user's completion decisions. The phone alone writes it.
 
-Use **Copy agent file IDs** on the home card after the first successful connection to
+Use **Copy agent file IDs** in Capture inbox after the first successful connection to
 identify the exact files for your agent. Each installation owns its own file pair;
 reinstalling or using another phone creates another pair, which may have the same names.
 The copied IDs disambiguate them. OAuth and the agent's separate Drive authorization
 are still required. The app does not send credentials or messages to any agent.
 
-See [AGENT_BOARD.md](AGENT_BOARD.md) for the file contract and a sample board. Refresh
-on the home card to request an update. Sync also runs when the launcher resumes and
+See [AGENT_BOARD.md](AGENT_BOARD.md) for the file contract and a sample board. Use
+**Refresh dashboard** in the search bar’s three-dot menu to request an update. Sync also runs when the launcher resumes and
 through the existing periodic worker (about 15 minutes, subject to Android restrictions).
-The card displays the last successful sync time; cached information stays visible offline.
+Cached information stays visible offline without routine connection commentary.
+**Add task** lives in the fixed bottom dock. Completed tasks stay hidden by default;
+the small **N done** control inside the task widget toggles them.
 Phone-added tasks and explicit completion overrides survive all incoming refreshes.
 Stable task IDs identify the same task; give a genuinely new task a new ID.
 
@@ -326,22 +415,14 @@ Google testing; transport integration tests use a local fake server without cred
 
 ## Home quick-capture buttons
 
-The home tab provides **Text note**, **Voice note**, and **Add image** directly above
-Agent updates. Each opens the launcher's themed bottom sheet without leaving Home.
-Text note focuses the editor; save commits to the same offline inbox. Unsaved text
-(up to 65,536 characters) survives configuration changes and Android saved-state
-restoration; closing a nonblank draft asks before discarding it. Force-stop or abrupt
-process loss before Android saves state can still lose an unsaved draft.
+The fixed bottom dock provides **Text**, **Voice** (hold), **Photo**, **Upload** and
+**Add task**. See Home capture tools above for holding, permissions, transcription
+and file import behavior. Text drafts (up to 65,536 characters) survive configuration
+changes and Android saved-state restoration; closing a nonblank draft asks before
+discarding it. Force-stop before Android saves state can still lose unsaved text.
 
-Voice note shows **Start recording**, a timer, and **Stop and save**. Microphone
-permission is requested only on Start. Closing an active recording saves and closes;
-leaving the foreground stops and saves it, including on rotation. No background mic
-service is used. Limits remain 10 minutes/25 MiB. A failed inbox commit retains the
-completed recording and offers **Retry save** in the sheet; discarding it is explicit.
-After abrupt process death, private staging recordings still require manual recovery.
-
-Add image offers the system image picker from its sheet; cancelling leaves captures
-unchanged. All saves use shared app-private storage and enqueue the existing Drive
-worker through the internal sync receiver. The regular Inbox and passive external
-share entry remain available for reviewing captures and configuring Drive. Existing
-quick-capture shortcuts retain their original Activity-based behavior.
+A failed recording commit retains its completed staging file for **Retry save**;
+explicit discard removes it. Abrupt process death before commitment can still leave
+staging recordings requiring manual recovery. The three-dot menu's **Capture inbox /
+Drive setup** opens the existing Inbox for reviewing captures and account setup.
+Passive shares and legacy quick-capture shortcuts retain their Activity behavior.

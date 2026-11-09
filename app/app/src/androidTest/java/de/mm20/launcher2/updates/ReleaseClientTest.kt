@@ -15,7 +15,7 @@ class ReleaseClientTest {
     private fun release(tag: String, draft: Boolean = false, download: String = "${ReleaseClient.REPOSITORY}/releases/download/$tag/${ReleaseClient.APK}") =
         JSONObject().put("tag_name", tag).put("draft", draft).put("prerelease", tag.contains("preview"))
             .put("assets", JSONArray().put(JSONObject().put("name", ReleaseClient.APK).put("state", "uploaded")
-                .put("size", 1234).put("browser_download_url", download)))
+                .put("size", 1234).put("digest", "sha256:" + "a".repeat(64)).put("browser_download_url", download)))
 
     @Test fun publishedPreviewsAreFoundWithoutGoogleCredentials() {
         MockWebServer().use { server ->
@@ -25,6 +25,8 @@ class ReleaseClientTest {
             val result = requireNotNull(ReleaseClient.check(current, server.url("/releases").toString()))
             assertEquals("v0.1.0-preview.10", result.tag)
             assertTrue(result.version > current)
+            assertEquals("a".repeat(64), result.sha256)
+            assertEquals(1234L, result.size)
             val request = server.takeRequest()
             assertNull(request.getHeader("Authorization"))
             assertEquals("application/vnd.github+json", request.getHeader("Accept"))

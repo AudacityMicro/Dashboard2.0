@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import de.mm20.launcher2.ui.R
@@ -45,6 +46,7 @@ fun RowScope.SearchBarMenu(
 
     Box(contentAlignment = Alignment.TopEnd) {
         IconButton(
+            modifier = Modifier.testTag("search-overflow-menu"),
             onClick = {
                 if (searchBarValue.isNotBlank()) onInputClear()
                 else showOverflowMenu = true
@@ -102,6 +104,35 @@ fun RowScope.SearchBarMenu(
                     leadingIcon = {
                         Icon(painterResource(R.drawable.settings_24px), contentDescription = null)
                     }
+                )
+                DropdownMenuItem(
+                    modifier = Modifier.testTag("edit-grid-menu"), shape = MenuDefaults.middleItemShape,
+                    onClick = { showOverflowMenu = false; de.mm20.launcher2.ui.dashboard.GridEditing.active = true },
+                    text = { Text("Edit layout") },
+                )
+                DropdownMenuItem(
+                    modifier = Modifier.testTag("refresh-dashboard-menu"), shape = MenuDefaults.middleItemShape,
+                    onClick = {
+                        showOverflowMenu = false
+                        context.sendBroadcast(Intent("${context.packageName}.dashboard.SYNC").setPackage(context.packageName))
+                    }, text = { Text("Refresh dashboard") },
+                )
+                DropdownMenuItem(
+                    modifier = Modifier.testTag("capture-inbox-menu"), shape = MenuDefaults.middleItemShape,
+                    onClick = {
+                        showOverflowMenu = false
+                        context.startActivity(Intent().setClassName(context.packageName, "de.mm20.launcher2.capture.CaptureActivity"))
+                    }, text = { Text("Capture inbox / Drive setup") },
+                )
+                DropdownMenuItem(
+                    modifier = Modifier.testTag("update-launcher-menu"),
+                    shape = MenuDefaults.middleItemShape,
+                    onClick = {
+                        showOverflowMenu = false
+                        context.startActivity(Intent().setClassName(context.packageName,
+                            "de.mm20.launcher2.updates.UpdateActivity"))
+                    },
+                    text = { Text("Update launcher") },
                 )
                 val colorScheme = MaterialTheme.colorScheme
                 DropdownMenuItem(

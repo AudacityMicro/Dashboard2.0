@@ -37,7 +37,8 @@ data class AgentBoard(val updates: List<AgentUpdate>, val tasks: List<BoardTask>
         }
     }
 }
-data class DashboardSnapshot(val updates: List<AgentUpdate>, val tasks: List<BoardTask>, val status: String, val lastSync: Long, val agentFileId: String = "", val phoneFileId: String = "", val instructionsFileId: String = "", val setupHidden: Boolean = false)
+data class DashboardSnapshot(val updates: List<AgentUpdate>, val tasks: List<BoardTask>, val status: String, val lastSync: Long, val agentFileId: String = "", val phoneFileId: String = "", val instructionsFileId: String = "", val setupHidden: Boolean = false,
+    val connectionIssue: String = "")
 
 /** Remote board is agent-owned; phone edits live in a separate durable overlay and export. */
 class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOpenHelper(context,
@@ -88,7 +89,13 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
         }
         return DashboardSnapshot(remote.updates, (remote.tasks.map { it.copy(completed = checks[it.id] ?: it.completed) } + local)
             .sortedBy { it.completed }, meta("status"), meta("lastSync").toLongOrNull() ?: 0, meta("agentFile"), meta("phoneFile"),
-            if (meta("instructionsReady") == "true") meta("instructionsFile") else "", meta("setupHidden") == "true")
+            if (meta("instructionsReady") == "true") meta("instructionsFile") else "", meta("setupHidden") == "true",
+            when (meta("connection")) {
+                "connected" -> ""
+                "reconnect" -> "Google Drive disconnected. Reconnect through the menu’s Capture inbox."
+                "paused" -> "Google Drive is disconnected or paused. Connect through the menu’s Capture inbox."
+                else -> if (meta("agentFile").isBlank()) "Connect Google Drive through the menu’s Capture inbox." else ""
+            })
     }
     fun phoneState(): String = JSONObject().apply {
         put("schemaVersion", 1); put("revision", meta("revision").toLongOrNull() ?: 0)

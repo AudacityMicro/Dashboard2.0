@@ -1,6 +1,8 @@
 package de.mm20.launcher2.ui.settings.main
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
 import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavKey
 import de.mm20.launcher2.ui.R
@@ -27,11 +29,18 @@ data object MainRoute: NavKey
 @Composable
 fun MainSettingsScreen() {
     val backStack = LocalBackStack.current
+    val context = LocalContext.current
     PreferenceScreen(
         title = stringResource(R.string.settings),
     ) {
         item {
             PreferenceCategory {
+                Preference(title = "Update launcher from GitHub",
+                    summary = "Download the latest compatible update and open Android’s install prompt",
+                    onClick = {
+                        context.startActivity(Intent().setClassName(context.packageName,
+                            "de.mm20.launcher2.updates.UpdateActivity").putExtra("automatic", true))
+                    })
                 Preference(
                     icon = R.drawable.palette_24px,
                     title = stringResource(id = R.string.preference_screen_appearance),

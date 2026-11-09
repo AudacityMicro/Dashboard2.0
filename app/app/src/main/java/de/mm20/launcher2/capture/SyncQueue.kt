@@ -22,6 +22,8 @@ object SyncQueue {
         enqueue(context)
     }
     fun enqueue(context: Context) {
+        if (!DriveAuth.state(context).optBoolean("enabled"))
+            de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("connection", "paused") }
         WorkManager.getInstance(context).enqueueUniqueWork("capture-transcription", ExistingWorkPolicy.APPEND_OR_REPLACE,
             OneTimeWorkRequestBuilder<TranscriptionWorker>().build())
         enqueueDrive(context)
@@ -50,17 +52,18 @@ class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
             try {
                 val token = DriveAuth.token(context)
                 if (token == null) {
-                    de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("status", "Reconnect Google Drive in Capture inbox.") }
+                    de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("connection", "reconnect"); it.setMeta("status", "Reconnect Google Drive in Capture inbox.") }
                     queued.forEach { store.update(it.id, "state" to "auth_required") }
                     return@withContext Result.success()
                 }
                 val subject = DriveAuth.subject(token)
                 if (subject != auth.optString("subject")) {
-                    de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("status", "Reconnect the original Google account.") }
+                    de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("connection", "reconnect"); it.setMeta("status", "Reconnect the original Google account.") }
                     queued.forEach { store.update(it.id, "state" to "auth_required") }
                     return@withContext Result.success()
                 }
                 if (isStopped || !DriveAuth.state(context).optBoolean("enabled")) return@withContext Result.success()
+                de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("connection", "connected") }
                 val boardNeedsRetry = DashboardSync.sync(context, token, subject)
                 for (original in queued) {
                     activeId = original.id
@@ -87,6 +90,7 @@ class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val state = SyncPolicy.stateForHttp(e.code)
                 if (state == "retry") Result.retry() else {
                     if (state == "auth_required") {
+                        de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("connection", "reconnect") }
                         store.list().filter { it.state == "pending" }.forEach { store.update(it.id, "state" to state) }
                         Result.success()
                     } else {
@@ -99,7 +103,7 @@ class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
             } catch (_: java.util.concurrent.TimeoutException) { Result.retry()
             } catch (e: com.google.android.gms.common.api.ApiException) {
                 if (e.statusCode in listOf(7, 8, 14, 15, 17)) Result.retry() else {
-                    de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("status", "Reconnect Google Drive in Capture inbox.") }
+                    de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("connection", "reconnect"); it.setMeta("status", "Reconnect Google Drive in Capture inbox.") }
                     store.list().filter { it.state == "pending" }.forEach { store.update(it.id, "state" to "auth_required") }
                     Result.success()
                 }

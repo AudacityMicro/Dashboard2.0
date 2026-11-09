@@ -10,6 +10,17 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class DashboardStoreTest {
+    @Test fun onlyDisconnectedConnectionsProduceHomeStatus() = withStore { name ->
+        DashboardStore(context, name).use { store ->
+            store.setMeta("connection", "connected")
+            store.setMeta("status", "Home board synced with Google Drive.")
+            assertEquals("", store.snapshot().connectionIssue)
+            store.setMeta("connection", "paused")
+            assertTrue(store.snapshot().connectionIssue.isNotEmpty())
+            store.setMeta("connection", "reconnect")
+            assertTrue(store.snapshot().connectionIssue.contains("Reconnect"))
+        }
+    }
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val incoming = """{"schemaVersion":1,"updates":[{"id":"brief","title":"Today","body":"Bring a jacket"}],"tasks":[{"id":"agent-1","title":"Prepare agenda","due":"Tomorrow","completed":false}]}"""
     private fun withStore(block: (String) -> Unit) {

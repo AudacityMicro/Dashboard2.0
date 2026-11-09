@@ -3,6 +3,7 @@ package de.mm20.launcher2.ui.launcher.widgets.external
 import android.appwidget.AppWidgetManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -36,6 +37,7 @@ import de.mm20.launcher2.widgets.Widget
 @Composable
 fun AppWidget(
     widget: AppWidget,
+    gridMode: Boolean = false,
     onWidgetUpdate: (Widget) -> Unit,
     onWidgetRemove: () -> Unit,
 ) {
@@ -90,15 +92,15 @@ fun AppWidget(
         )
     } else {
         val width = widget.config.width
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(modifier = if (gridMode) Modifier.fillMaxSize() else Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             AppWidgetHost(
                 widgetId = widget.config.widgetId,
                 widgetInfo = widgetInfo,
                 modifier = Modifier
-                    .then(
+                    .then(if (gridMode) Modifier.fillMaxSize() else Modifier.then(
                         if (width == null) Modifier.fillMaxWidth() else Modifier.width(width.dp)
                     )
-                    .height(widget.config.height.dp),
+                    .height(widget.config.height.dp)),
                 borderless = widget.config.borderless,
                 useThemeColors = widget.config.themeColors,
                 onLightBackground = lightBackground,

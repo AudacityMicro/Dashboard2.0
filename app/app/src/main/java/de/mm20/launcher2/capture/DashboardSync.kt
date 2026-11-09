@@ -9,6 +9,7 @@ internal object DashboardSync {
     fun sync(context: Context, token: String, subject: String, api: String = "https://www.googleapis.com", databaseName: String = "dashboard.db"): Boolean {
         DashboardStore(context, databaseName).use { store ->
             if (!SyncPolicy.sameOwner(store.meta("owner"), subject)) {
+                store.setMeta("connection", "reconnect")
                 store.setMeta("status", "Reconnect the original Google account to update the board.")
                 return false
             }
@@ -43,6 +44,7 @@ internal object DashboardSync {
                     else "Drive connected. Task changes are saved on this phone first.")
                 return false
             } catch (e: DriveFailure) {
+                if (e.code == 401) store.setMeta("connection", "reconnect")
                 store.setMeta("status", if (e.code == 401) "Reconnect Google Drive in Capture inbox." else
                     "Drive board unavailable (${e.code}). Showing your saved board.")
                 return SyncPolicy.stateForHttp(e.code) == "retry"

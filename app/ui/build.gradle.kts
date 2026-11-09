@@ -72,6 +72,7 @@ android {
 
 
 dependencies {
+    implementation("androidx.window:window:1.5.1")
     implementation(project(":data:dashboard"))
     implementation(libs.bundles.kotlin)
 
