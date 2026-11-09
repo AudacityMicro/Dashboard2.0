@@ -11,8 +11,24 @@ class FavoriteAppsWidgetConfigTest {
     @Test fun existingAppsWidgetsRetainTheirBehavior() {
         val old = Json.decodeFromString<FavoritesWidgetConfig>("""{"customTags":true,"tagList":["Work"],"skipRows":2}""")
         assertFalse(old.favoritesOnly)
+        assertFalse(old.selectedOnly)
+        assertTrue(old.selectedAppKeys.isEmpty())
         assertTrue(old.customTags); assertTrue(old.editButton)
         assertEquals(2, old.skipRows)
+    }
+    @Test fun selectedAppsRoundTripSeparatelyWithoutChangingOtherWidgets() {
+        val first = AppsWidget.selectedApps(UUID.randomUUID()).let {
+            it.copy(config = it.config.copy(selectedAppKeys = listOf("app:work:one", "app:personal:one")))
+        }
+        val second = AppsWidget.selectedApps(UUID.randomUUID())
+        val entity = first.toDatabaseEntity()
+        val restored = Widget.fromDatabaseEntity(WidgetEntity(entity.type, entity.config, 2, first.id)) as AppsWidget
+        assertEquals(first, restored)
+        assertTrue(restored.config.selectedOnly)
+        assertFalse(restored.config.favoritesOnly)
+        assertFalse(restored.config.editButton)
+        assertTrue(second.config.selectedAppKeys.isEmpty())
+        assertFalse(AppsWidget.favoritesOnly(UUID.randomUUID()).config.selectedOnly)
     }
     @Test fun favoriteAppsVariantSurvivesDatabaseAndBackupSerialization() {
         val widget = AppsWidget.favoritesOnly(UUID.randomUUID())

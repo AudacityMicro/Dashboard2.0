@@ -20,7 +20,8 @@ import de.mm20.launcher2.ui.launcher.search.common.grid.SearchResultGrid
 import de.mm20.launcher2.widgets.AppsWidget
 
 @Composable
-fun AppsWidget(widget: AppsWidget) {
+fun AppsWidget(widget: AppsWidget, onWidgetUpdate: (AppsWidget) -> Unit = {}) {
+    if (widget.config.selectedOnly) { SelectedAppsWidget(widget, onWidgetUpdate); return }
     if (widget.config.favoritesOnly) { FavoriteAppsWidget(widget); return }
     val viewModel: AppsWidgetVM = viewModel(key = "favorites-widget-${widget.id}")
     val favorites by remember { viewModel.favorites }.collectAsState(emptyList())

@@ -71,6 +71,10 @@ class WidgetsService(
                 label = context.getString(R.string.widget_name_favorite_apps),
             ),
             BuiltInWidgetInfo(
+                type = AppsWidget.SelectedAppsType,
+                label = context.getString(R.string.widget_name_selected_apps),
+            ),
+            BuiltInWidgetInfo(
                 type = NotesWidget.Type,
                 label = context.getString(R.string.widget_name_notes),
             ),

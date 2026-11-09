@@ -454,6 +454,25 @@ The variant is stored as an additional, backward-compatible configuration field 
 the existing Apps widget model, so persistence and widget backups retain it without
 a database migration. Existing Apps widgets default to their original behavior.
 
+## Selected apps widget
+
+Choose **Edit layout → Add widget → Selected apps** to add a widget with an independent
+app list. Tap its **three dots** to open the searchable app chooser, check the apps
+you want, then tap **Save**. **Cancel** discards changes. Repeat for each widget to
+make separate app groups without changing your favorites. Icons appear in selection
+order; uncheck and reselect an app to move it to the end.
+
+The widget face shows only app icons and the three-dot button, including when empty.
+It has no title, app labels, tag controls, settings row or app-detail popup. Names
+remain available to screen readers and inside the chooser. Icons follow launcher
+styling and wrap/scroll as the widget is resized. Long-press uses the existing move
+and corner-resize handles; the active screen layout is edited as usual.
+
+Selections persist in widget storage and backups and use full app/profile keys.
+Hidden or unavailable apps do not appear; their keys remain saved so they can
+return after becoming available again. A selection is shared by that widget's
+portrait/landscape/unfolded appearances, while its position and size remain separate.
+
 ## Home quick-capture buttons
 
 The fixed bottom dock provides **Text**, **Voice** (hold), **Photo**, **Upload**. See Home capture tools above for holding, permissions, transcription

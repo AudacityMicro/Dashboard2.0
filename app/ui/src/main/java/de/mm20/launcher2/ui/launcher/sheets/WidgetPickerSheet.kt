@@ -387,6 +387,7 @@ fun WidgetPickerSheet(
                                     MusicWidget.Type -> MusicWidget(id)
                                     AppsWidget.Type -> AppsWidget(id)
                                     AppsWidget.FavoritesOnlyType -> AppsWidget.favoritesOnly(id)
+                                    AppsWidget.SelectedAppsType -> AppsWidget.selectedApps(id)
                                     NotesWidget.Type -> NotesWidget(id)
                                     else -> return@clickable
                                 }
@@ -404,7 +405,7 @@ fun WidgetPickerSheet(
                                         WeatherWidget.Type -> R.drawable.light_mode_24px
                                         CalendarWidget.Type -> R.drawable.today_24px
                                         MusicWidget.Type -> R.drawable.music_note_24px
-                                        AppsWidget.Type, AppsWidget.FavoritesOnlyType -> R.drawable.apps_24px
+                                        AppsWidget.Type, AppsWidget.FavoritesOnlyType, AppsWidget.SelectedAppsType -> R.drawable.apps_24px
                                         NotesWidget.Type -> R.drawable.sticky_note_2_24px
                                         else -> R.drawable.widgets_24px
                                     }

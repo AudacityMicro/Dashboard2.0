@@ -79,7 +79,7 @@ fun WidgetItem(
         backgroundOpacity = backgroundOpacity,
     ) {
         Column(if (gridMode) Modifier.fillMaxSize() else Modifier) {
-            AnimatedVisibility(editMode && !(widget is AppsWidget && widget.config.favoritesOnly)) {
+            AnimatedVisibility(editMode && !(widget is AppsWidget && (widget.config.favoritesOnly || widget.config.selectedOnly))) {
                 Row(
                     modifier = Modifier.padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -140,7 +140,7 @@ fun WidgetItem(
                     }
 
                     is AppsWidget -> {
-                        AppsWidget(widget)
+                        AppsWidget(widget, onWidgetUpdate)
                     }
 
                     is NotesWidget -> {
