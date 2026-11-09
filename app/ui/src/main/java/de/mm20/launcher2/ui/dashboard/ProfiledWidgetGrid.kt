@@ -24,6 +24,7 @@ import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import de.mm20.launcher2.dashboard.*
 import de.mm20.launcher2.ui.component.LauncherCard
+import de.mm20.launcher2.ui.locals.LocalAppGridWidth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -136,7 +137,9 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
                             selected = editing && activeTile == tile.id, editing = editing, enabled = !busy,
                             onSelect = { activeTile = tile.id; GridEditing.target = parent },
                             onPlace = { place(tile.id, it) }, onExactSize = { selected = tile.id }) {
-                            tile.content(Modifier.fillMaxSize())
+                            CompositionLocalProvider(LocalAppGridWidth provides maxWidth) {
+                                tile.content(Modifier.fillMaxSize())
+                            }
                         }
                     } }
                 }) { measurables, constraints ->

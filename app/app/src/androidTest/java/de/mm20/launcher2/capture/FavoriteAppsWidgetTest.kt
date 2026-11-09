@@ -91,7 +91,10 @@ class FavoriteAppsWidgetTest {
                             chosen.value?.let { widget ->
                                 Column(Modifier.width(width.intValue.dp).fillMaxHeight().verticalScroll(rememberScrollState())) {
                                     ProfiledWidgetGrid(gridParent, listOf(GridTile("apps", "Favorite apps", rows = 4) { modifier ->
-                                        WidgetItem(widget, modifier, gridMode = true)
+                                        // Model a narrower tile within the same 360dp canvas.
+                                        CompositionLocalProvider(de.mm20.launcher2.ui.locals.LocalAppGridWidth provides 360.dp) {
+                                            WidgetItem(widget, modifier, gridMode = true)
+                                        }
                                     }))
                                 }
                             }

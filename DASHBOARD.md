@@ -444,8 +444,10 @@ favorites controls or app search; this widget has no tag selector or edit button
 
 There is no title, visible app label, control row or empty-state banner. Accessible
 app names remain available to screen readers. The regular **Apps** option retains
-its existing behavior. Narrow spans wrap icons into fewer columns while preserving
-the normal icon size, with vertical scrolling for overflow. The widget participates
+its existing behavior. Both icon-only app widgets use **Settings → Icons → Grid**
+for column count and icon size. A full-width widget follows the configured column
+count; narrower spans use the corresponding fraction of those columns. Icon size
+is independent of column count, with vertical scrolling for overflow. The widget participates
 in the existing per-screen layouts and long-press move/resize handles. Exact-size,
 Hide and Remove everywhere remain available through layout editing, outside the
 widget's content; there is no widget-specific settings button for this variant.
@@ -465,7 +467,7 @@ order; uncheck and reselect an app to move it to the end.
 The widget face shows only app icons and the three-dot button, including when empty.
 It has no title, app labels, tag controls, settings row or app-detail popup. Names
 remain available to screen readers and inside the chooser. Icons follow launcher
-styling and wrap/scroll as the widget is resized. Long-press uses the existing move
+styling, configured app-grid column density and icon size, and wrap/scroll as the widget is resized. Long-press uses the existing move
 and corner-resize handles; the active screen layout is edited as usual.
 
 Selections persist in widget storage and backups and use full app/profile keys.

@@ -5,6 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.Dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import de.mm20.launcher2.preferences.MeasurementSystem
@@ -24,6 +25,9 @@ val LocalFavoritesEnabled = compositionLocalOf { true }
 val LocalShowAppDetails = compositionLocalOf { false }
 
 val LocalGridSettings = compositionLocalOf { GridSettings() }
+
+// Width of the whole widget canvas, before individual tiles are resized.
+val LocalAppGridWidth = compositionLocalOf { Dp.Unspecified }
 
 
 /**
