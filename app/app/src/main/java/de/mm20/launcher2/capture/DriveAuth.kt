@@ -27,6 +27,8 @@ object DriveAuth {
             stream.write(JSONObject().put("enabled", enabled).put("subject", subject).toString().toByteArray())
             file.finishWrite(stream)
         } catch (e: Exception) { file.failWrite(stream); throw e }
+        // Connection display is derived metadata; a display failure must not undo committed consent.
+        runCatching { de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("connection", if (enabled) "connected" else "paused") } }
     }
     fun token(context: Context): String? {
         val result = try {

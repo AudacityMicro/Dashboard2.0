@@ -25,6 +25,48 @@ import org.junit.Test
 
 class DashboardHomeTest {
     @get:Rule val compose = createEmptyComposeRule()
+    @Test fun settingsUpdateButtonStartsAutomaticGitHubFlow() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val observed = java.util.concurrent.atomic.AtomicReference<android.content.Intent>()
+        val monitor = object : android.app.Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: android.content.Intent): android.app.Instrumentation.ActivityResult? {
+                if (intent.component?.className != de.mm20.launcher2.updates.UpdateActivity::class.java.name) return null
+                observed.set(intent)
+                return android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED, null)
+            }
+        }
+        instrumentation.addMonitor(monitor)
+        try {
+            ActivityScenario.launch(de.mm20.launcher2.ui.settings.SettingsActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithText("Update launcher from GitHub").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText("Update launcher from GitHub").performClick()
+                compose.waitUntil(5000) { observed.get() != null }
+                assertTrue(observed.get().getBooleanExtra("automatic", false))
+            }
+        } finally { instrumentation.removeMonitor(monitor) }
+    }
+    @Test fun refreshMovesToMenuAndRequestsDashboardSync() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val received = java.util.concurrent.atomic.AtomicInteger(0)
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context, intent: android.content.Intent) { received.incrementAndGet() }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(context, receiver,
+            android.content.IntentFilter("${context.packageName}.dashboard.SYNC"), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("search-overflow-menu").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText("Refresh").assertDoesNotExist()
+                compose.onNodeWithText("Capture inbox").assertDoesNotExist()
+                received.set(0)
+                compose.onNodeWithTag("search-overflow-menu").performClick()
+                compose.onNodeWithTag("capture-inbox-menu").assertExists()
+                compose.onNodeWithTag("refresh-dashboard-menu").performClick()
+                compose.waitUntil(5000) { received.get() > 0 }
+            }
+        } finally { context.unregisterReceiver(receiver) }
+    }
     @Test fun dashboardCardsFollowTransparencyAndDockStaysBelowScrollingContent() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val oldHidden = DashboardStore(context).use { it.meta("setupHidden") }
@@ -227,7 +269,8 @@ class DashboardHomeTest {
                 val instrumentation = InstrumentationRegistry.getInstrumentation()
                 val monitor = instrumentation.addMonitor(CaptureActivity::class.java.name, null, false)
                 try {
-                    compose.onNodeWithText("Capture inbox").performScrollTo().performClick()
+                    compose.onNodeWithTag("search-overflow-menu").performClick()
+                    compose.onNodeWithTag("capture-inbox-menu").performClick()
                     val inbox = requireNotNull(instrumentation.waitForMonitorWithTimeout(monitor, 5000))
                     androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Copy agent setup prompt"))
                         .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isEnabled()))
@@ -279,7 +322,7 @@ class DashboardHomeTest {
             ActivityScenario.launch(LauncherActivity::class.java).use {
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-updates").fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithTag("agent-updates").assertExists()
-                compose.onNodeWithText("Add task").performScrollTo().performClick()
+                compose.onNodeWithTag("add-task-dock").performClick()
                 compose.onNodeWithTag("new-task-title").performTextInput(title)
                 compose.onNodeWithText("Save task").performClick()
                 compose.waitUntil(5000) {
@@ -289,6 +332,12 @@ class DashboardHomeTest {
                 compose.onNodeWithTag("task-check-${requireNotNull(id)}").performScrollTo().performClick()
                 compose.waitUntil(5000) { DashboardStore(context).use { store -> store.snapshot().tasks.find { task -> task.id == id }?.completed == true } }
                 DashboardStore(context).use { store -> assertTrue(store.snapshot().tasks.single { task -> task.id == id }.completed) }
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("toggle-completed").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("task-check-${requireNotNull(id)}").assertDoesNotExist()
+                compose.onNodeWithTag("toggle-completed").performScrollTo().performClick()
+                compose.onNodeWithTag("task-check-${requireNotNull(id)}").assertExists()
+                compose.onNodeWithTag("toggle-completed").performClick()
+                compose.onNodeWithTag("task-check-${requireNotNull(id)}").assertDoesNotExist()
             }
         } finally {
             id?.let { saved -> DashboardStore(context).use { store -> store.writableDatabase.delete("local_tasks", "id=?", arrayOf(saved)) } }

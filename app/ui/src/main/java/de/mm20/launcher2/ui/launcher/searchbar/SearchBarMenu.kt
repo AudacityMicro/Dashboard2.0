@@ -106,6 +106,20 @@ fun RowScope.SearchBarMenu(
                     }
                 )
                 DropdownMenuItem(
+                    modifier = Modifier.testTag("refresh-dashboard-menu"), shape = MenuDefaults.middleItemShape,
+                    onClick = {
+                        showOverflowMenu = false
+                        context.sendBroadcast(Intent("${context.packageName}.dashboard.SYNC").setPackage(context.packageName))
+                    }, text = { Text("Refresh dashboard") },
+                )
+                DropdownMenuItem(
+                    modifier = Modifier.testTag("capture-inbox-menu"), shape = MenuDefaults.middleItemShape,
+                    onClick = {
+                        showOverflowMenu = false
+                        context.startActivity(Intent().setClassName(context.packageName, "de.mm20.launcher2.capture.CaptureActivity"))
+                    }, text = { Text("Capture inbox / Drive setup") },
+                )
+                DropdownMenuItem(
                     modifier = Modifier.testTag("update-launcher-menu"),
                     shape = MenuDefaults.middleItemShape,
                     onClick = {

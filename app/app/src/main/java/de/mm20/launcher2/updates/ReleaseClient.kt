@@ -4,7 +4,8 @@ import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 
-internal data class DashboardRelease(val tag: String, val version: ReleaseVersion, val download: String)
+internal data class DashboardRelease(val tag: String, val version: ReleaseVersion, val download: String,
+    val sha256: String = "", val size: Long = 0)
 internal class ReleaseCheckFailure(val status: Int) : java.io.IOException()
 
 internal object ReleaseClient {
@@ -23,12 +24,14 @@ internal object ReleaseClient {
             if (current.preview == null && (version.preview != null || release.optBoolean("prerelease"))) return@mapNotNull null
             val expected = "$REPOSITORY/releases/download/$tag/$APK"
             val assets = release.optJSONArray("assets") ?: return@mapNotNull null
-            val found = (0 until assets.length()).any { assetIndex ->
+            val found = (0 until assets.length()).mapNotNull { assetIndex ->
                 val asset = assets.optJSONObject(assetIndex)
-                asset != null && asset.optString("name") == APK && asset.optString("state") == "uploaded" &&
+                asset?.takeIf { asset.optString("name") == APK && asset.optString("state") == "uploaded" &&
                     asset.optLong("size") > 0 && asset.optString("browser_download_url") == expected
-            }
-            if (found) DashboardRelease(tag, version, expected) else null
+                }
+            }.firstOrNull()
+            if (found != null) DashboardRelease(tag, version, expected,
+                found.optString("digest").removePrefix("sha256:"), found.optLong("size")) else null
         }.maxByOrNull { it.version }
     }
 

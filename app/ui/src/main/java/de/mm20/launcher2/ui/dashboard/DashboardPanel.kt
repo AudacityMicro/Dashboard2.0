@@ -73,7 +73,7 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Set up your agent", style = MaterialTheme.typography.titleLarge)
                     Text(if (board.instructionsFileId.isBlank())
-                        "Connect Google Drive below, then copy this prompt to your agent. It explains how to use your captures, updates and tasks."
+                        "Connect Google Drive from the menu, then copy this prompt to your agent. It explains how to use your captures, updates and tasks."
                         else "Copy this prompt to your agent. It includes your Drive file IDs and asks your agent to check the instructions file for current guidance.")
                     FilledTonalButton(modifier = Modifier.testTag("copy-agent-setup"), onClick = {
                         context.getSystemService(android.content.ClipboardManager::class.java)
@@ -102,7 +102,6 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("Agent updates", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { sync() }) { Text("Refresh") }
                     }
                     if (board.updates.isEmpty()) Text(if (board.setupHidden) "No agent updates yet." else
                         "Your agent’s information will appear here. Your last saved updates remain available offline.")
@@ -111,26 +110,23 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                         if (update.body.isNotEmpty()) Text(update.body, style = MaterialTheme.typography.bodyMedium)
                         HorizontalDivider()
                     }
-                    if (board.status.isNotEmpty() || !board.setupHidden)
-                        Text(board.status.ifEmpty { "Connect Google Drive in Capture inbox to receive updates." }, style = MaterialTheme.typography.labelMedium)
-                    if (board.lastSync > 0) Text("Last synced: ${java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(board.lastSync))}", style = MaterialTheme.typography.labelSmall)
-                    Row {
-                        TextButton(onClick = {
-                            context.startActivity(Intent().setClassName(context.packageName, "de.mm20.launcher2.capture.CaptureActivity"))
-                        }) { Text(if (board.setupHidden) "Capture inbox" else "Capture inbox / Drive setup") }
-                    }
-                    if (!board.setupHidden) TextButton(enabled = board.agentFileId.isNotEmpty(), onClick = {
-                        val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Dashboard agent files",
-                            "Agent writes Dashboard-agent.json: ${board.agentFileId}\nAgent reads Dashboard-phone-tasks.json: ${board.phoneFileId}\nAgent reads ${AgentSetup.INSTRUCTIONS_NAME}: ${board.instructionsFileId.ifBlank { "Pending first successful sync" }}\nKeep schemaVersion 1 and stable task IDs. Never write the phone-owned file."))
-                    }) { Text("Copy agent file IDs") }
+                    if (board.connectionIssue.isNotEmpty()) Text(board.connectionIssue,
+                        style = MaterialTheme.typography.labelMedium, modifier = Modifier.testTag("drive-disconnected"))
+
                 }
             }
             LauncherCard(Modifier.fillMaxWidth().testTag("todo-list")) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("To-do list", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { adding = true }) { Text("Add task") }
+                        val completed = board.tasks.count { it.completed }
+                        if (completed > 0) TextButton(onClick = { showCompleted = !showCompleted },
+                            modifier = Modifier.testTag("toggle-completed").semantics {
+                                contentDescription = if (showCompleted) "Hide completed tasks" else "Show completed tasks"
+                            }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                            Text("$completed done", style = MaterialTheme.typography.labelSmall,
+                                color = if (showCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                     val open = board.tasks.count { !it.completed }
                     Text("$open remaining", style = MaterialTheme.typography.labelMedium)
@@ -147,15 +143,12 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                             }
                         }
                     }
-                    if (board.tasks.any { it.completed }) TextButton(onClick = { showCompleted = !showCompleted }) {
-                        Text(if (showCompleted) "Hide completed" else "Show completed")
-                    }
                     if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
                 }
             }
             footer()
         }
-        CaptureDock(capture, Modifier.fillMaxWidth().padding(vertical = 8.dp))
+        CaptureDock(capture, Modifier.fillMaxWidth().padding(vertical = 8.dp), onAddTask = { adding = true })
     }
     InlineCaptureSheet(capture)
     if (adding) AlertDialog(
