@@ -22,7 +22,12 @@ object SyncQueue {
         enqueue(context)
     }
     fun enqueue(context: Context) {
-        WorkManager.getInstance(context).enqueueUniqueWork("capture-sync", ExistingWorkPolicy.KEEP,
+        WorkManager.getInstance(context).enqueueUniqueWork("capture-transcription", ExistingWorkPolicy.APPEND_OR_REPLACE,
+            OneTimeWorkRequestBuilder<TranscriptionWorker>().build())
+        enqueueDrive(context)
+    }
+    fun enqueueDrive(context: Context) {
+        WorkManager.getInstance(context).enqueueUniqueWork("capture-sync", ExistingWorkPolicy.APPEND_OR_REPLACE,
             OneTimeWorkRequestBuilder<DriveSyncWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS).build())
@@ -40,7 +45,7 @@ class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
             return@withContext Result.success()
         }
         InboxStore(context).use { store ->
-            val queued = store.list().filter { it.state == "pending" }
+            val queued = store.list().filter { it.readyForSync }
             var activeId: String? = null
             try {
                 val token = DriveAuth.token(context)
@@ -71,8 +76,9 @@ class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
                     val remote = original.remote.ifEmpty { DriveHttp.newId(token).also { store.update(original.id, "remote" to it) } }
                     val manifest = original.manifest.ifEmpty { DriveHttp.newId(token).also { store.update(original.id, "manifest" to it) } }
                     val capture = original.copy(remote = remote, manifest = manifest, owner = subject)
-                    val extension = when (capture.kind) { "text" -> "txt"; "voice" -> "audio"; else -> "image" }
-                    DriveHttp.upload(token, remote, capture.id, "Dashboard-${capture.id}.$extension", capture.mime, store.file(capture.id))
+                    val extension = when (capture.kind) { "text" -> "txt"; "voice" -> if (capture.mime == "audio/mp4") "m4a" else "audio"; "image" -> "image"; else -> "file" }
+                    val filename = if (capture.name.isNotBlank()) "Dashboard-${capture.id}-${capture.name}" else "Dashboard-${capture.id}.$extension"
+                    DriveHttp.upload(token, remote, capture.id, filename, capture.mime, store.file(capture.id))
                     DriveHttp.upload(token, manifest, capture.id, "Dashboard-${capture.id}.json", "application/json", bytes = store.manifest(capture))
                     store.update(capture.id, "state" to "synced")
                 }

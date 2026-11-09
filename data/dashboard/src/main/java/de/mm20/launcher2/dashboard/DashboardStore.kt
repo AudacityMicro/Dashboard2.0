@@ -37,7 +37,7 @@ data class AgentBoard(val updates: List<AgentUpdate>, val tasks: List<BoardTask>
         }
     }
 }
-data class DashboardSnapshot(val updates: List<AgentUpdate>, val tasks: List<BoardTask>, val status: String, val lastSync: Long, val agentFileId: String = "", val phoneFileId: String = "", val instructionsFileId: String = "")
+data class DashboardSnapshot(val updates: List<AgentUpdate>, val tasks: List<BoardTask>, val status: String, val lastSync: Long, val agentFileId: String = "", val phoneFileId: String = "", val instructionsFileId: String = "", val setupHidden: Boolean = false)
 
 /** Remote board is agent-owned; phone edits live in a separate durable overlay and export. */
 class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOpenHelper(context,
@@ -88,7 +88,7 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
         }
         return DashboardSnapshot(remote.updates, (remote.tasks.map { it.copy(completed = checks[it.id] ?: it.completed) } + local)
             .sortedBy { it.completed }, meta("status"), meta("lastSync").toLongOrNull() ?: 0, meta("agentFile"), meta("phoneFile"),
-            if (meta("instructionsReady") == "true") meta("instructionsFile") else "")
+            if (meta("instructionsReady") == "true") meta("instructionsFile") else "", meta("setupHidden") == "true")
     }
     fun phoneState(): String = JSONObject().apply {
         put("schemaVersion", 1); put("revision", meta("revision").toLongOrNull() ?: 0)

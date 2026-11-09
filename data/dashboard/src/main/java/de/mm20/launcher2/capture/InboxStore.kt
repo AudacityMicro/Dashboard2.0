@@ -10,22 +10,33 @@ import java.io.FileOutputStream
 import java.util.UUID
 
 data class Capture(val id: String, val kind: String, val mime: String, val created: Long,
-    val text: String, val state: String, val remote: String, val manifest: String, val owner: String)
+    val text: String, val state: String, val remote: String, val manifest: String, val owner: String,
+    val transcription: String = "none", val name: String = "") {
+    val readyForSync: Boolean get() = state == "pending" && transcription != "pending"
+}
 
 /** Both database and payloads are excluded from Android/cloud backup. No external URIs survive import. */
 class InboxStore(private val context: Context) : SQLiteOpenHelper(context,
-    File(context.noBackupFilesDir, "capture/inbox.db").also { it.parentFile!!.mkdirs() }.path, null, 1) {
+    File(context.noBackupFilesDir, "capture/inbox.db").also { it.parentFile!!.mkdirs() }.path, null, 2) {
     private val root = File(context.noBackupFilesDir, "capture").also { it.mkdirs() }
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""CREATE TABLE captures(id TEXT PRIMARY KEY, kind TEXT NOT NULL,
             mime TEXT NOT NULL, created INTEGER NOT NULL, text TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'pending', remote TEXT NOT NULL DEFAULT '',
-            manifest TEXT NOT NULL DEFAULT '', owner TEXT NOT NULL DEFAULT '')""")
+            manifest TEXT NOT NULL DEFAULT '', owner TEXT NOT NULL DEFAULT '',
+            transcription TEXT NOT NULL DEFAULT 'none', name TEXT NOT NULL DEFAULT '')""")
     }
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE captures ADD COLUMN transcription TEXT NOT NULL DEFAULT 'none'")
+            db.execSQL("ALTER TABLE captures ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+        }
+    }
     fun file(id: String) = File(root, "$id.payload")
-    fun save(kind: String, mime: String, text: String = "", source: java.io.InputStream? = null): String {
-        require(kind in listOf("text", "voice", "image"))
+    fun save(kind: String, mime: String, text: String = "", source: java.io.InputStream? = null,
+        transcribe: Boolean = false, name: String = ""): String {
+        require(kind in listOf("text", "voice", "image", "file"))
+        require(!transcribe || kind == "voice")
         require(kind != "text" || text.isNotBlank())
         val id = UUID.randomUUID().toString()
         val temp = File(root, "$id.tmp")
@@ -47,17 +58,19 @@ class InboxStore(private val context: Context) : SQLiteOpenHelper(context,
             writableDatabase.insertOrThrow("captures", null, ContentValues().apply {
                 put("id", id); put("kind", kind); put("mime", mime)
                 put("created", System.currentTimeMillis()); put("text", text)
+                put("transcription", if (transcribe) "pending" else "none")
+                put("name", name.substringAfterLast('/').substringAfterLast('\\').filter { !it.isISOControl() }.take(180))
             })
         } catch (e: Exception) { temp.delete(); file(id).delete(); throw e }
         // Scheduling failure never rolls back a committed local capture; periodic recovery repairs it.
-        runCatching { SyncQueue.enqueue(context.applicationContext) }
+        runCatching { context.sendBroadcast(android.content.Intent("${context.packageName}.dashboard.SYNC").setPackage(context.packageName)) }
         return id
     }
     fun list(): List<Capture> = readableDatabase.rawQuery("SELECT * FROM captures ORDER BY created DESC", null).use { c ->
         buildList { while (c.moveToNext()) {
             fun s(name: String) = c.getString(c.getColumnIndexOrThrow(name))
             add(Capture(s("id"), s("kind"), s("mime"), c.getLong(c.getColumnIndexOrThrow("created")),
-                s("text"), s("state"), s("remote"), s("manifest"), s("owner")))
+                s("text"), s("state"), s("remote"), s("manifest"), s("owner"), s("transcription"), s("name")))
         } }
     }
     fun update(id: String, vararg fields: Pair<String, String>) {
@@ -68,6 +81,7 @@ class InboxStore(private val context: Context) : SQLiteOpenHelper(context,
         put("schemaVersion", 1); put("id", c.id); put("kind", c.kind)
         put("createdAt", java.time.Instant.ofEpochMilli(c.created).toString())
         put("mimeType", c.mime); put("text", c.text); put("driveFileId", c.remote)
+        put("transcriptionStatus", c.transcription); put("originalName", c.name)
         put("source", "Dashboard2.0")
     }.toString(2).toByteArray(Charsets.UTF_8)
 }

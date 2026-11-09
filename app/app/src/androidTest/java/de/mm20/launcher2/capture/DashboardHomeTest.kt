@@ -13,6 +13,162 @@ import org.junit.Test
 
 class DashboardHomeTest {
     @get:Rule val compose = createEmptyComposeRule()
+    private fun screenshot(name: String) {
+        if (InstrumentationRegistry.getArguments().getString("screenshots") != "true") return
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        java.io.File(instrumentation.targetContext.getExternalFilesDir(null), name).outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
+    }
+    @Test fun photoButtonLaunchesCameraAutomaticallyAndCancelKeepsInboxUnchanged() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val observed = java.util.concurrent.atomic.AtomicReference<android.content.Intent>()
+        val monitor = object : android.app.Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: android.content.Intent): android.app.Instrumentation.ActivityResult? {
+                if (intent.action != android.provider.MediaStore.ACTION_IMAGE_CAPTURE) return null
+                observed.set(intent)
+                return android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED, null)
+            }
+        }
+        val before = InboxStore(context).use { it.list().map { capture -> capture.id }.toSet() }
+        instrumentation.addMonitor(monitor)
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-image").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("capture-image").performScrollTo().performClick()
+                compose.waitUntil(5000) { observed.get() != null }
+                val uri = observed.get().getParcelableExtra<android.net.Uri>(android.provider.MediaStore.EXTRA_OUTPUT)
+                assertEquals("content", uri?.scheme)
+                assertEquals("${context.packageName}.fileprovider", uri?.authority)
+                compose.waitForIdle()
+                assertEquals(before, InboxStore(context).use { store -> store.list().map { capture -> capture.id }.toSet() })
+            }
+        } finally { instrumentation.removeMonitor(monitor) }
+    }
+    @Test fun cameraResultCopiesFullResolutionPhotoIntoInbox() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val monitor = object : android.app.Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: android.content.Intent): android.app.Instrumentation.ActivityResult? {
+                if (intent.action != android.provider.MediaStore.ACTION_IMAGE_CAPTURE) return null
+                val uri = requireNotNull(intent.getParcelableExtra<android.net.Uri>(android.provider.MediaStore.EXTRA_OUTPUT))
+                val image = android.graphics.Bitmap.createBitmap(1600, 1200, android.graphics.Bitmap.Config.ARGB_8888)
+                image.eraseColor(android.graphics.Color.BLUE)
+                context.contentResolver.openOutputStream(uri)!!.use { image.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }
+                image.recycle()
+                return android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_OK, null)
+            }
+        }
+        val before = InboxStore(context).use { it.list().map { capture -> capture.id }.toSet() }
+        var id: String? = null
+        instrumentation.addMonitor(monitor)
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-image").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("capture-image").performScrollTo().performClick()
+                compose.waitUntil(10000) { id = InboxStore(context).use { store -> store.list().find { it.id !in before }?.id }; id != null }
+                InboxStore(context).use { store ->
+                    val capture = store.list().single { capture -> capture.id == id }
+                    assertEquals("image/jpeg", capture.mime)
+                    val image = android.graphics.BitmapFactory.decodeFile(store.file(requireNotNull(id)).path)
+                    assertEquals(1600, image.width); assertEquals(1200, image.height); image.recycle()
+                }
+            }
+        } finally {
+            instrumentation.removeMonitor(monitor)
+            id?.let { saved -> InboxStore(context).use { store -> store.writableDatabase.delete("captures", "id=?", arrayOf(saved)); store.file(saved).delete() } }
+        }
+    }
+    @Test fun uploadButtonOpensDocumentsAutomaticallyAndCopiesFileOffline() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val file = java.io.File(context.cacheDir, "capture-test.pdf").apply { writeText("%PDF-1.4 offline document") }
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val observed = java.util.concurrent.atomic.AtomicReference<android.content.Intent>()
+        val monitor = object : android.app.Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: android.content.Intent): android.app.Instrumentation.ActivityResult? {
+                if (intent.action != android.content.Intent.ACTION_OPEN_DOCUMENT) return null
+                observed.set(intent)
+                return android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_OK, android.content.Intent().setData(uri))
+            }
+        }
+        var id: String? = null
+        instrumentation.addMonitor(monitor)
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-file").fetchSemanticsNodes().isNotEmpty() }
+                screenshot("capture-home.png")
+                compose.onNodeWithTag("capture-file").performScrollTo().performClick()
+                compose.waitUntil(5000) { observed.get() != null }
+                assertEquals("*/*", observed.get().type)
+                compose.waitUntil(10000) {
+                    id = InboxStore(context).use { store -> store.list().find { it.name == file.name }?.id }; id != null
+                }
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-capture-saved").fetchSemanticsNodes().isNotEmpty() }
+                file.delete()
+                InboxStore(context).use { store ->
+                    assertEquals("%PDF-1.4 offline document", store.file(requireNotNull(id)).readText())
+                    assertEquals("file", store.list().single { capture -> capture.id == id }.kind)
+                }
+            }
+        } finally {
+            instrumentation.removeMonitor(monitor); file.delete()
+            id?.let { saved -> InboxStore(context).use { store -> store.writableDatabase.delete("captures", "id=?", arrayOf(saved)); store.file(saved).delete() } }
+        }
+    }
+    @Test fun hiddenSetupSurvivesRecreationAndCanBeRestoredFromInbox() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val old = DashboardStore(context).use { it.meta("setupHidden") }
+        try {
+            DashboardStore(context).use { it.setMeta("setupHidden", "false") }
+            ActivityScenario.launch(LauncherActivity::class.java).use { home ->
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("hide-dashboard-setup").performScrollTo().performClick()
+                compose.waitUntil(5000) {
+                    DashboardStore(context).use { it.snapshot().setupHidden } &&
+                        compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isEmpty()
+                }
+                home.recreate()
+                compose.waitForIdle()
+                compose.onNodeWithTag("agent-setup").assertDoesNotExist()
+                compose.onNodeWithText("Copy agent file IDs").assertDoesNotExist()
+                compose.onNodeWithTag("capture-actions").assertExists()
+                compose.onNodeWithTag("todo-list").assertExists()
+                val instrumentation = InstrumentationRegistry.getInstrumentation()
+                val monitor = instrumentation.addMonitor(CaptureActivity::class.java.name, null, false)
+                try {
+                    compose.onNodeWithText("Capture inbox").performScrollTo().performClick()
+                    val inbox = requireNotNull(instrumentation.waitForMonitorWithTimeout(monitor, 5000))
+                    androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Copy agent setup prompt"))
+                        .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isEnabled()))
+                    val show = androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Show setup on home screen"))
+                    show.check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isNotChecked()))
+                        .perform(androidx.test.espresso.action.ViewActions.scrollTo(), androidx.test.espresso.action.ViewActions.click())
+                    compose.waitUntil(5000) { DashboardStore(context).use { !it.snapshot().setupHidden } }
+                    instrumentation.runOnMainSync { inbox.finish() }
+                } finally { instrumentation.removeMonitor(monitor) }
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            }
+        } finally { DashboardStore(context).use { it.setMeta("setupHidden", old) } }
+    }
+    @Test fun updateScreenOpensFromHomeWithoutStartingANetworkCheck() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val monitor = instrumentation.addMonitor(de.mm20.launcher2.updates.UpdateActivity::class.java.name, null, false)
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use {
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("check-dashboard-updates").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("check-dashboard-updates").performScrollTo().performClick()
+                val opened = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
+                assertNotNull(opened)
+                androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("Tap Check now to contact GitHub."))
+                    .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isDisplayed()))
+                instrumentation.runOnMainSync { opened.finish() }
+            }
+        } finally { instrumentation.removeMonitor(monitor) }
+    }
     @Test fun setupPromptIsAvailableOnHomeBeforeDriveConnection() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         ActivityScenario.launch(LauncherActivity::class.java).use {
@@ -51,25 +207,83 @@ class DashboardHomeTest {
             id?.let { saved -> DashboardStore(context).use { store -> store.writableDatabase.delete("local_tasks", "id=?", arrayOf(saved)) } }
         }
     }
-    @Test fun homeHasAllThreeCaptureButtonsAndTextOpensTheEditor() {
+    @Test fun homeCaptureSavesTextInlineAndPreservesDraftAcrossRecreation() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val monitor = instrumentation.addMonitor(QuickCaptureActivity::class.java.name, null, false)
+        val context = instrumentation.targetContext
+        val text = "Inline note ${java.util.UUID.randomUUID()}"
+        var id: String? = null
         try {
-            ActivityScenario.launch(LauncherActivity::class.java).use {
+            ActivityScenario.launch(LauncherActivity::class.java).use { home ->
                 compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-actions").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithText("Text note").assertExists()
-                compose.onNodeWithText("Voice note").assertExists()
-                compose.onNodeWithText("Add image").assertExists()
+                compose.onNodeWithTag("capture-text").assertExists()
+                compose.onNodeWithTag("capture-voice").assertExists()
+                compose.onNodeWithTag("capture-image").assertExists()
+                compose.onNodeWithTag("capture-file").assertExists()
                 compose.onNodeWithTag("capture-text").performScrollTo().performClick()
-                val opened = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
-                assertNotNull("Home capture button did not open capture", opened)
-                instrumentation.waitForIdleSync()
-                instrumentation.runOnMainSync {
-                    assertTrue("Text quick capture should focus the editor", opened.currentFocus is android.widget.EditText)
-                    opened.finish()
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("inline-note-save").assertIsNotEnabled()
+                screenshot("inline-text.png")
+                compose.onNodeWithTag("inline-note-editor").performTextInput(text)
+                home.recreate()
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-note-editor").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("inline-note-editor").assertTextContains(text)
+                compose.onNodeWithText("Close", useUnmergedTree = true).performScrollTo().performClick()
+                compose.onNodeWithText("Discard unsaved note?").assertExists()
+                compose.onNodeWithText("Keep editing").performClick()
+                compose.onNodeWithTag("inline-note-save").performScrollTo().performClick()
+                compose.waitUntil(5000) {
+                    id = InboxStore(context).use { it.list().find { capture -> capture.text == text }?.id }; id != null
                 }
+                compose.onNodeWithTag("inline-capture-saved").assertExists()
+                InboxStore(context).use { assertEquals(text, it.file(requireNotNull(id)).readText()) }
+                assertEquals("Inline capture should not open another Activity", 0, monitor.hits)
             }
-        } finally { instrumentation.removeMonitor(monitor) }
+        } finally {
+            instrumentation.removeMonitor(monitor)
+            id?.let { saved -> InboxStore(context).use { store ->
+                store.writableDatabase.delete("captures", "id=?", arrayOf(saved)); store.file(saved).delete()
+            } }
+        }
+    }
+
+    @Test fun voiceRecordsInsideHomeAndSavesWhenLauncherLeavesForeground() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, android.Manifest.permission.RECORD_AUDIO)
+        val before = InboxStore(context).use { it.list().map { capture -> capture.id }.toSet() }
+        val added = mutableListOf<String>()
+        try {
+            ActivityScenario.launch(LauncherActivity::class.java).use { home ->
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("capture-voice").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("capture-voice").performScrollTo().performClick()
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-voice-record").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText("Start recording").assertExists()
+                compose.onNodeWithTag("inline-voice-record").performClick()
+                compose.onNodeWithText("Stop and save").assertExists()
+                compose.waitUntil(5000) { compose.onAllNodesWithText("00:02").fetchSemanticsNodes().isNotEmpty() }
+                screenshot("inline-voice.png")
+                home.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+                compose.waitUntil(5000) {
+                    InboxStore(context).use { store ->
+                        added.clear(); added.addAll(store.list().filter { it.id !in before }.map { it.id }); added.size == 1
+                    }
+                }
+                home.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+                compose.waitUntil(5000) { compose.onAllNodesWithTag("inline-capture-saved").fetchSemanticsNodes().isNotEmpty() }
+                InboxStore(context).use { store ->
+                    val capture = store.list().single { it.id in added }
+                    assertEquals("voice", capture.kind); assertTrue(store.file(capture.id).length() > 0)
+                }
+                compose.waitUntil(60000) { InboxStore(context).use { store -> store.list().single { it.id in added }.transcription != "pending" } }
+                InboxStore(context).use { store ->
+                    assertTrue(store.list().single { it.id in added }.transcription in listOf("ready", "no_speech"))
+                }
+                compose.onNodeWithTag("inline-voice-transcript").assertExists()
+            }
+        } finally { InboxStore(context).use { store ->
+            store.list().filter { it.id !in before }.forEach { store.writableDatabase.delete("captures", "id=?", arrayOf(it.id)); store.file(it.id).delete() }
+        } }
     }
 
 }

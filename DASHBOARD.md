@@ -11,7 +11,7 @@ from the home content, leaving the Android status bar indicators.
 
 Install the default debug APK, choose Dashboard as your Home app, then search for
 **Dashboard Inbox**. You can also long-press Dashboard's icon and pin **Capture inbox**.
-Save text, record voice, or select an image/audio document. Other apps can share
+Save text, record voice, take a photo, or upload an image/file. Other apps can share
 text, images or audio into Dashboard Inbox; shared text remains a draft until saved.
 Tap an inbox entry to read, preview or play it. Recording stops and saves when the
 activity leaves the foreground; there is no background microphone service.
@@ -59,6 +59,48 @@ least-privilege `drive.file` scope. Each capture produces:
 - `Dashboard-<uuid>.txt`, `.audio`, or `.image`: original bytes and correct MIME type.
 - `Dashboard-<uuid>.json`: UTF-8 record with `schemaVersion`, `id`, `createdAt` (UTC),
   `kind`, `mimeType`, `text`, `driveFileId`, and `source`.
+
+### Home capture tools
+
+The four Home buttons are **Text**, **Voice**, **Photo** and **Upload**. Text and
+voice remain in the launcher's themed sheet. Photo immediately opens the installed
+camera through Android's full-resolution `TakePicture` contract; cancel creates no
+inbox entry. The temporary camera URI uses the existing nonexported FileProvider.
+Android's camera app is needed for taking photos. Upload immediately opens Android's
+document picker for images or any file type. The app copies the selection into its
+private inbox (25 MiB maximum), retains a sanitized display name/MIME type and does
+not keep access to the provider URI or execute documents. Providers may themselves
+need a connection to download cloud-only files before import.
+
+Voice recording uses mono 16 kHz AAC. Saving commits the original audio before
+automatic English transcription starts. Vosk decodes that saved file locally in
+WorkManager, with no network constraint, Google sign-in or microphone access during
+transcription. Pending transcription survives app/process restart; startup and the
+15-minute recovery job reschedule it. Work is serialized, and appended requests
+prevent captures added during a running job from being missed. WorkManager/Android
+can defer processing; force-stopped apps resume after reopening.
+
+The saved sheet displays the transcript when ready; reopen the voice item in Inbox
+to read it later and play the audio. Speech recognition is approximate and English
+only in this increment. Silence/unsupported audio/recognition failure is explicit,
+and the audio remains intact. Failed transcription permits raw-audio synchronization
+so the agent can use its own transcription tools. Abruptly killing the app before
+recording is stopped can still leave an uncommitted staging recording.
+
+Database version 2 preserves existing captures and adds `transcription` and `name`.
+Older voice notes are left intact and are not automatically retranscribed. New
+voice manifests wait for transcription to finish and include `transcriptionStatus`
+and the transcript in `text`; generic uploads use `kind: file` and `originalName`.
+The existing manifest schema stays version 1 with additive optional fields. The
+original payload is always uploaded before its manifest. Starter guide version 6
+explains these fields, uncertainty and safe document handling. Existing Drive guides
+remain user-owned; copy the new setup prompt to the agent to merge the guidance.
+
+The standard build commands below also fetch and bundle the pinned English model.
+See [speech notices and build requirements](SPEECH_NOTICES.md) for size, licenses,
+checksum and first-run storage requirements. Tests cover database migration, a real
+offline speech sample, actual recorder decoding, immediate camera/document launches,
+camera cancellation, full-resolution photo import and durable PDF import.
 
 Example manifest:
 
@@ -142,7 +184,7 @@ adb install -r app/app/build/outputs/apk/androidTest/default/debug/app-default-d
 adb shell am instrument -w io.github.audacitymicro.dashboard.debug.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-Require `OK (15 tests)`, rather than a shell exit code alone. Allocate at least 4 GiB
+Require a nonzero `OK (... tests)` result, rather than a shell exit code alone. Allocate at least 4 GiB
 RAM to the Google-enabled test emulator to avoid startup memory pressure interrupting
 the test process. Test only on a disposable device/emulator.
 
@@ -177,25 +219,72 @@ regressions require device validation; do not equate a compile with these checks
 - [Drive pre-generated IDs](https://developers.google.com/workspace/drive/api/guides/manage-uploads#use_a_pre-generated_id_to_upload_files)
 - [AndroidX Test release compatibility](https://developer.android.com/jetpack/androidx/releases/test)
 
+## Dashboard updates
+
+Tap **Check for updates** on the home setup card or **Check for Dashboard updates**
+in Capture inbox, then **Check now**. This manual check contacts the public GitHub
+releases API without Google credentials. It examines the 30 most recent published
+releases, skips drafts/missing APKs and compares Dashboard versions numerically.
+Preview builds include preview releases; a future stable build stays on stable.
+Offline, rate-limit and server errors remain visible and can be retried.
+
+**Download update** opens the official repository's APK URL in your browser. Open
+the downloaded APK and approve Android's update prompt. Android verifies the installed
+package's signing certificate. Install over the app; uninstalling removes private,
+unsynced data. No background checks, automatic downloads or silent installs occur.
+This channel supports the default debug package distributed in Dashboard previews;
+other build types must use their own provider.
+
+Maintainers: tag releases `vMAJOR.MINOR.PATCH-preview.NUMBER` or `vMAJOR.MINOR.PATCH`;
+publish a fully uploaded `Dashboard-2.0-preview.apk` asset. Keep `versionName` aligned
+with the tag and increment Android `versionCode` for every distributed build (including
+CI overrides). Continue signing published updates with the same private signing key.
+CI's temporary debug keys cannot update the locally signed preview installation.
+Preserve the maintainer's key securely outside the public repository. Never replace
+an existing version's asset with different code. Existing Preview 1/2 installations
+need one manual installation of Preview 3 or newer to gain this feature.
+
+Release API: https://docs.github.com/en/rest/releases/releases
+
 Completed recordings are retained as private staging files if committing the inbox
 fails (for example, when storage is full), rather than deleting the original.
 Staging-file recovery is not yet exposed in the UI.
 
 ## Home tab: agent updates and to-dos
 
+Tap **Hide setup** on the home setup card whenever you are ready to clear the setup
+controls from Home. The choice persists across launcher restarts and app updates.
+It hides the setup card and file-ID button, while capture actions, agent updates,
+task controls and operational sync status remain available. Open **Capture inbox**
+to reconnect Drive, copy the setup prompt/file IDs or check for updates. Turn on
+**Show setup on home screen** there to restore the home setup controls. Hiding setup
+does not change your connections, tasks or captures; setup completion is your choice.
+
 From first launch, **Set up your agent** offers **Copy agent setup prompt**. Connect
 Drive and let it sync, then copy the prompt to include the exact board, phone-state
 and `Dashboard-agent-instructions.md` file IDs. Before connection the button still
 copies useful setup instructions and asks for a fresh copy after sync. The Drive
 guide is created once and preserves your edits. The prompt tells your agent to read
-that guide before each run and check for changes. Agree a monitoring schedule with
-your agent; the launcher cannot schedule another agent itself.
+that guide before each run and check for changes. It requests checks every 15 minutes
+from 08:00–22:00 and every two hours overnight (22:00, 00:00, 02:00, 04:00, 06:00)
+in the user's local timezone, using the phone's IANA timezone if no established
+preference exists. The agent verifies its own scheduler, reuses existing schedules,
+handles daylight-saving changes and keeps unchanged checks quiet. The launcher
+cannot schedule another agent itself; unsupported agents must explain that and
+check on demand. The user can change the default hours and timezone.
 
-Starter guide version 2 allows agents to maintain that guide, checkpoint durable
+Starter guide version 6 allows agents to maintain that guide, checkpoint durable
 memory before context compaction, and connect email/calendar through their own tools.
 These are instructions for the agent, not additional launcher integrations. For an
 existing Drive guide, copy the updated prompt to your agent so it can merge the new
 guidance while preserving your edits; the phone does not overwrite the guide.
+It also directs the agent to digest provided captures into the context document,
+verify the result, then archive original payload/manifest pairs through its own
+Drive tools. The default is at least 30 days of archive retention followed by a
+relevance review; notes tied to unfinished work stay longer. Cleanup is proposed
+for approval, not performed automatically because a note reaches 30 days. The app
+itself does not move notes or enforce retention, and Drive moves do not remove
+the phone's local originals.
 
 The main/home tab now shows quick-capture buttons, **Agent updates** and a **To-do list**,
 plus any enabled home widgets. Add a task or check/uncheck it directly on the phone;
@@ -238,9 +327,21 @@ Google testing; transport integration tests use a local fake server without cred
 ## Home quick-capture buttons
 
 The home tab provides **Text note**, **Voice note**, and **Add image** directly above
-Agent updates. Text note opens the focused editor and keyboard; Voice note requests
-microphone permission when needed and starts recording; Add image opens the system
-image picker. Picker cancellation leaves existing data unchanged. These automatic
-capture actions use a non-exported activity, so external share intents cannot trigger
-an automatic microphone recording. The regular Inbox entry remains available for
-reviewing captures and configuring Google Drive.
+Agent updates. Each opens the launcher's themed bottom sheet without leaving Home.
+Text note focuses the editor; save commits to the same offline inbox. Unsaved text
+(up to 65,536 characters) survives configuration changes and Android saved-state
+restoration; closing a nonblank draft asks before discarding it. Force-stop or abrupt
+process loss before Android saves state can still lose an unsaved draft.
+
+Voice note shows **Start recording**, a timer, and **Stop and save**. Microphone
+permission is requested only on Start. Closing an active recording saves and closes;
+leaving the foreground stops and saves it, including on rotation. No background mic
+service is used. Limits remain 10 minutes/25 MiB. A failed inbox commit retains the
+completed recording and offers **Retry save** in the sheet; discarding it is explicit.
+After abrupt process death, private staging recordings still require manual recovery.
+
+Add image offers the system image picker from its sheet; cancelling leaves captures
+unchanged. All saves use shared app-private storage and enqueue the existing Drive
+worker through the internal sync receiver. The regular Inbox and passive external
+share entry remain available for reviewing captures and configuring Drive. Existing
+quick-capture shortcuts retain their original Activity-based behavior.
