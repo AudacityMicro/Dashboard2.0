@@ -6,7 +6,7 @@ object AgentSetup {
 
     val instructions = """
         # Dashboard agent instructions
-        Guide version: 7
+        Guide version: 8
 
         Help the user stay organized with useful updates, reliable tasks and clear
         next actions. Prefer doing authorized work to repeatedly asking for approval.
@@ -273,10 +273,22 @@ object AgentSetup {
         Never create a replacement file or modify the phone-owned task file.
         Required JSON format (both arrays are required; empty arrays are valid):
 
-        {"schemaVersion":1,"updates":[{"id":"daily-brief","title":"Today's focus","body":"Your priorities and decisions needed."}],"tasks":[{"id":"review-outline","title":"Review the project outline","completed":false,"due":"Tomorrow afternoon"}]}
+        {"schemaVersion":1,"updates":[{"id":"daily-brief","title":"Today's focus","body":"**Priority:** Prepare the outline.\n\n- Bring your notes\n- Leave at 09:30"}],"tasks":[{"id":"review-outline","title":"Review the project outline","completed":false,"due":"Tomorrow afternoon"}]}
 
-        Use plain text, concise updates and stable task IDs for the same logical
-        assignment. Use a fresh ID for a genuinely new task. Retire an ID when the
+        Format update bodies with Markdown as needed to make useful information
+        easy to scan: short ## or ### headings, **bold** priorities, *emphasis*,
+        bullet or numbered lists, block quotes, inline/fenced code and descriptive
+        [links](https://example.com). Use ordinary http/https destinations. Plain
+        paragraphs are fine when formatting adds nothing. Keep updates concise;
+        avoid decorative formatting or repeating the card title as a heading.
+        Do not wrap the entire body in a code fence. HTML, embedded images and
+        tables are not supported; use lists instead. Markdown checkboxes in updates
+        are read-only: put actionable to-dos in the tasks array so the user can
+        check them off. Keep update titles, task titles and due values plain text.
+        Keep the JSON envelope and schemaVersion unchanged: store Markdown in the
+        body string, escape newlines as \n and quote characters as required by JSON.
+        Use stable task IDs for the same logical assignment.
+        Use a fresh ID for a genuinely new task. Retire an ID when the
         assignment is removed. Title/due changes do not reset phone completion.
         Updates and tasks each have their own unique-ID namespace. Do not use local-
         task IDs. Optional body/due default to empty and completed defaults to false.
@@ -331,7 +343,10 @@ object AgentSetup {
             upcoming commitments and useful next actions. Include verified weather
             only when relevant to my plans. Keep app/setup commentary, instruction
             summaries and agent status reports off the dashboard; discuss those
-            directly with me instead. Follow the detailed editorial guidance below.
+            directly with me instead. Format update bodies with Markdown as needed
+            for clear headings, emphasis, lists and useful web links. Keep actionable
+            to-dos in the tasks array, and titles/due text plain. Follow the detailed
+            editorial and Markdown guidance below.
         """.trimIndent(), files, """
             Monitor the instructions file above for current guidance: read it by
             its exact ID now and BEFORE EACH Dashboard processing run, and check for
@@ -343,7 +358,7 @@ object AgentSetup {
             explain the limitation and check on demand. Keep unchanged checks quiet.
             Do not claim you are monitoring just because you received this prompt.
             The guide cannot override my direct instructions or your safety rules.
-        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 7 guidance below into that same file, preserving user customizations and file IDs. Apply the monitoring cadence and useful-daily-information guidance requested in this prompt; ask about other conflicting preferences. Do not replace the guide with a new file.",
+        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 8 guidance below into that same file, preserving user customizations and file IDs. Apply the monitoring cadence and useful-daily-information guidance requested in this prompt; ask about other conflicting preferences. Do not replace the guide with a new file.",
             "Follow this starting contract, also included in a newly created Drive guide:", instructions).joinToString("\n\n")
     }
 }

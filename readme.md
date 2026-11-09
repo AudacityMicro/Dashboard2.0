@@ -12,7 +12,7 @@ requires the one-time OAuth setup described in the setup guide.
 
 A Kvaesitso-based Android launcher with offline text, optional offline English voice transcripts,
 camera capture and image/file uploads
-and queued Google Drive synchronization. Its main tab includes agent updates and an
+and queued Google Drive synchronization. Its main tab includes Markdown agent updates and an
 offline to-do list backed by separate agent/phone Drive files. See [DASHBOARD.md](DASHBOARD.md) for setup,
 OAuth registration, data format, build/test commands and current limits.
 

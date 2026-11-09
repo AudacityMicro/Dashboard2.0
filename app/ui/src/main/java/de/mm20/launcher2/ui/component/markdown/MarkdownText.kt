@@ -32,6 +32,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
@@ -51,7 +56,7 @@ import org.intellij.markdown.parser.MarkdownParser
 fun MarkdownText(
     text: String,
     modifier: Modifier = Modifier,
-    onTextChange: (String) -> Unit,
+    onTextChange: ((String) -> Unit)? = null,
 ) {
     val parsed = remember(text) {
         MarkdownParser(GFMFlavourDescriptor()).buildMarkdownTreeFromString(text)
@@ -62,7 +67,7 @@ fun MarkdownText(
 @Composable
 fun MarkdownText(
     rootNode: ASTNode, text: String, modifier: Modifier = Modifier,
-    onTextChange: (String) -> Unit,
+    onTextChange: ((String) -> Unit)? = null,
 ) {
     ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
         Column(
@@ -78,13 +83,13 @@ fun MarkdownText(
 @Composable
 fun MarkdownNode(
     node: ASTNode, text: String,
-    onTextChange: (String) -> Unit,
+    onTextChange: ((String) -> Unit)? = null,
 ) {
     when (node.type) {
         MarkdownTokenTypes.TEXT -> TextNode(node, text)
         MarkdownTokenTypes.CODE_FENCE_CONTENT -> TextNode(node, text)
         MarkdownTokenTypes.CODE_LINE -> TextNode(node, text)
-        MarkdownElementTypes.PARAGRAPH -> ParagraphNode(node, text)
+        MarkdownElementTypes.PARAGRAPH -> ParagraphNode(node, text, webLinksOnly = onTextChange == null)
         MarkdownElementTypes.ATX_1 -> AtxNode(node, text, 1, onTextChange)
         MarkdownElementTypes.ATX_2 -> AtxNode(node, text, 2, onTextChange)
         MarkdownElementTypes.ATX_3 -> AtxNode(node, text, 3, onTextChange)
@@ -105,14 +110,14 @@ fun MarkdownNode(
 }
 
 @Composable
-fun ChildNodes(node: ASTNode, text: String, onTextChange: (String) -> Unit) {
+fun ChildNodes(node: ASTNode, text: String, onTextChange: ((String) -> Unit)?) {
     for (child in node.children) {
         MarkdownNode(child, text, onTextChange)
     }
 }
 
 @Composable
-fun AtxNode(node: ASTNode, text: String, level: Int, onTextChange: (String) -> Unit) {
+fun AtxNode(node: ASTNode, text: String, level: Int, onTextChange: ((String) -> Unit)?) {
     ProvideTextStyle(
         when (level) {
             1 -> MaterialTheme.typography.titleLarge
@@ -123,7 +128,7 @@ fun AtxNode(node: ASTNode, text: String, level: Int, onTextChange: (String) -> U
             else -> MaterialTheme.typography.labelSmall
         }
     ) {
-        ParagraphNode(node, text)
+        ParagraphNode(node, text, webLinksOnly = onTextChange == null)
     }
 }
 
@@ -138,7 +143,7 @@ fun TextNode(node: ASTNode, text: String) {
 }
 
 @Composable
-fun ParagraphNode(node: ASTNode, text: String) {
+fun ParagraphNode(node: ASTNode, text: String, webLinksOnly: Boolean = false) {
     val start = node.startOffset
     val end = node.endOffset
     val substring = text.substring(start, end)
@@ -147,7 +152,7 @@ fun ParagraphNode(node: ASTNode, text: String) {
 
     val layoutResult = remember { mutableStateOf<TextLayoutResult?>(null) }
 
-    val text = buildAnnotatedString {
+    val styled = buildAnnotatedString {
         append(substring)
         applyStyles(
             node,
@@ -158,6 +163,15 @@ fun ParagraphNode(node: ASTNode, text: String) {
             node.startOffset
         )
     }
+    // Remove hidden syntax from the read-only text too, so screen readers read the content.
+    val text = if (webLinksOnly) buildAnnotatedString {
+        var cursor = 0
+        for (hidden in styled.spanStyles.filter { it.item.fontSize == 0.sp }.sortedBy { it.start }) {
+            if (hidden.start > cursor) append(styled.subSequence(cursor, hidden.start))
+            cursor = maxOf(cursor, hidden.end)
+        }
+        if (cursor < styled.length) append(styled.subSequence(cursor, styled.length))
+    } else styled
 
     val context = LocalContext.current
 
@@ -166,7 +180,7 @@ fun ParagraphNode(node: ASTNode, text: String) {
         onTextLayout = {
             layoutResult.value = it
         },
-        modifier = Modifier.pointerInput(Unit) {
+        modifier = Modifier.pointerInput(text, webLinksOnly) {
             awaitEachGesture {
                 val down = awaitFirstDown(true)
                 val offset = down.position
@@ -177,11 +191,14 @@ fun ParagraphNode(node: ASTNode, text: String) {
                 val up =
                     waitForUpOrCancellation()?.takeIf { !it.isConsumed } ?: return@awaitEachGesture
                 val upPosition =
-                    layoutResult.value?.getOffsetForPosition(offset) ?: return@awaitEachGesture
+                    layoutResult.value?.getOffsetForPosition(up.position) ?: return@awaitEachGesture
                 val upAnnotation = text.getUrlAnnotations(upPosition, upPosition).firstOrNull()
                 val url = upAnnotation?.item?.url ?: return@awaitEachGesture
                 if (url == downUrl) {
-                    context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    val uri = Uri.parse(url)
+                    if (!webLinksOnly || uri.scheme?.lowercase() in listOf("https", "http")) {
+                        context.tryStartActivity(Intent(Intent.ACTION_VIEW, uri))
+                    }
                     up.consume()
                 }
             }
@@ -190,7 +207,7 @@ fun ParagraphNode(node: ASTNode, text: String) {
 }
 
 @Composable
-fun UnorderedListNode(node: ASTNode, text: String, onTextChange: (String) -> Unit) {
+fun UnorderedListNode(node: ASTNode, text: String, onTextChange: ((String) -> Unit)?) {
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         var counter = 1
         for (child in node.children) {
@@ -203,7 +220,7 @@ fun UnorderedListNode(node: ASTNode, text: String, onTextChange: (String) -> Uni
 }
 
 @Composable
-fun OrderedListNode(node: ASTNode, text: String, onTextChange: (String) -> Unit) {
+fun OrderedListNode(node: ASTNode, text: String, onTextChange: ((String) -> Unit)?) {
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         var counter = 1
         for (child in node.children) {
@@ -220,7 +237,7 @@ fun ListItemNode(
     node: ASTNode,
     index: Int,
     text: String,
-    onTextChange: (String) -> Unit
+    onTextChange: ((String) -> Unit)?
 ) {
 
     Row {
@@ -259,7 +276,7 @@ fun ListItemNode(
 }
 
 @Composable
-fun BlockQuoteNode(node: ASTNode, text: String, onTextChange: (String) -> Unit) {
+fun BlockQuoteNode(node: ASTNode, text: String, onTextChange: ((String) -> Unit)?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -289,7 +306,7 @@ fun BlockQuoteNode(node: ASTNode, text: String, onTextChange: (String) -> Unit) 
 }
 
 @Composable
-fun CodeBlockNode(node: ASTNode, text: String, onTextChange: (String) -> Unit) {
+fun CodeBlockNode(node: ASTNode, text: String, onTextChange: ((String) -> Unit)?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -317,17 +334,23 @@ fun CodeBlockNode(node: ASTNode, text: String, onTextChange: (String) -> Unit) {
 }
 
 @Composable
-fun CheckboxNode(node: ASTNode, text: String, onTextChange: (String) -> Unit = {}) {
+fun CheckboxNode(node: ASTNode, text: String, onTextChange: ((String) -> Unit)? = null) {
     val checkbox = text.substring(node.startOffset, node.endOffset)
     val checked = checkbox.startsWith("[x]")
 
 
     Checkbox(
-        checked = checked, onCheckedChange = {
-            val newCheckbox = if (it) "[x] " else "[ ] "
+        checked = checked, onCheckedChange = if (onTextChange == null) null else { newChecked: Boolean ->
+            val newCheckbox = if (newChecked) "[x] " else "[ ] "
             val newText = text.replaceRange(node.startOffset, node.endOffset, newCheckbox)
-            onTextChange(newText)
+            onTextChange.invoke(newText)
         }, modifier = Modifier
+            .semantics {
+                if (onTextChange == null) {
+                    role = Role.Checkbox
+                    toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
+                }
+            }
             .padding(top = 4.dp, bottom = 4.dp, end = 8.dp, start = 6.dp)
             .requiredSize(18.dp)
     )

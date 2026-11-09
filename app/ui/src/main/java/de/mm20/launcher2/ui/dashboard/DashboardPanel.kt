@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import de.mm20.launcher2.ui.component.LauncherCard
+import de.mm20.launcher2.ui.component.markdown.MarkdownText
 import de.mm20.launcher2.ui.launcher.widgets.rememberNativeGridWidgets
 import de.mm20.launcher2.preferences.WidgetScreenTarget
 import de.mm20.launcher2.preferences.ui.UiSettings
@@ -111,7 +112,8 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).reportGridContentHeight().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     board.updates.forEach { update ->
                         Text(update.title, style = MaterialTheme.typography.titleMedium)
-                        if (update.body.isNotEmpty()) Text(update.body, style = MaterialTheme.typography.bodyMedium)
+                        if (update.body.isNotEmpty()) MarkdownText(update.body,
+                            modifier = Modifier.fillMaxWidth().testTag("agent-markdown-${update.id}"))
                         HorizontalDivider()
                     }
                 }

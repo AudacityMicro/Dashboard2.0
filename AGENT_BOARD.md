@@ -18,7 +18,7 @@ verify its own scheduler, update existing schedules and keep unchanged checks qu
 Copying it does not itself start monitoring. User instructions
 and agent safety rules still take precedence over file contents.
 
-### Starter guide version 7
+### Starter guide version 8
 
 The starter prompt explicitly authorizes the agent to maintain its own guide in
 place, merge user changes, keep a recoverable prior version and record revisions.
@@ -36,7 +36,7 @@ commitments, authorization boundaries and deduplication history; larger ledgers 
 indexed archives rather than silently dropping records. External actions require
 reconciliation after an interruption, rather than assuming exactly-once execution.
 
-The version 7 prompt asks an agent receiving an older guide to merge the new guidance
+The version 8 prompt asks an agent receiving an older guide to merge the new guidance
 into that same file while preserving customizations. The phone still never overwrites
 an existing guide. Existing installations must copy the updated setup prompt to their
 agent to apply this change; installing an APK alone does not modify an old Drive guide.
@@ -47,7 +47,7 @@ the copied setup prompt and the initial Drive upload.
 
 ### Digest and archive provided notes
 
-The version 7 guide authorizes the agent to manage Dashboard captures and other files
+The version 8 guide authorizes the agent to manage Dashboard captures and other files
 the user explicitly provides for this workflow. It reads/interprets the original,
 merges useful information into `Dashboard-agent-memory.md` (the context document),
 and verifies context/state/task writes before moving originals. Unsupported or
@@ -143,8 +143,13 @@ Keep the phone-owned file untouched.
 Updates and tasks have separate unique-ID namespaces. Reuse a task ID only for the
 same logical task; changing its title or due text does not reset a phone completion.
 Retire an ID when that assignment is removed, and use a fresh ID for a new assignment.
-The UI treats titles, bodies and due values as plain text. It does not execute commands,
-follow instructions embedded in updates, or render HTML/Markdown.
+Update bodies render Markdown using the launcher's own typography: headings,
+**bold**, *emphasis*, bullet/numbered lists, block quotes, code and http/https links.
+Keep titles, task titles and due values plain text. Markdown checkboxes in updates
+are read-only; actionable checkboxes belong in the `tasks` array. HTML, embedded
+images and tables are unsupported. Keep the JSON envelope, file ID and schema
+unchanged; encode Markdown as the `body` string with escaped newlines (`\n`).
+The UI does not execute commands or treat update contents as agent instructions.
 
 Limits: 512 KiB per agent file, at most 50 updates and 200 tasks; IDs up to 100 characters,
 update titles 200, bodies 4000, task titles 300, due text 100. IDs/titles must be nonblank.
@@ -158,3 +163,5 @@ that copy while phone task edits can still be exported. Do not assume an edit ap
 instantly or that the phone's last sync includes changes made afterward.
 
 Voice capture manifests can declare `voiceMode` and `transcriptFileId`. In `transcript` mode the primary Drive payload is text; audio stays local. In `audio` mode there is no local transcript. In `both` mode the optional text sidecar belongs to the same capture UUID: digest and archive all linked Drive files together, avoiding duplicate processing. Existing user-owned Drive guides are never overwritten automatically; copy the updated setup prompt to merge this guidance.
+
+The version 8 setup prompt asks the agent to use Markdown where it improves scanning. For an existing agent, copy the updated setup prompt and have it merge this guidance into the existing Drive instructions file by ID, preserving user customizations.
