@@ -563,3 +563,13 @@ from all layouts. Hiding only the current layout remains available in Position a
 size. Built-in Dashboard sections are removed only from the active layout; restore
 them from **Widgets → Show …**. Their notes, agent updates and tasks stay intact.
 The action is also available to accessibility users on the selected widget.
+
+### Compact agent setup prompt
+
+Copy agent setup prompt now copies a short handoff instead of the full starter
+document. It preserves the three exact Drive file IDs and essential instructions,
+and asks the agent to read and monitor its full Drive guide in sections if needed.
+For older guides it links a version-pinned public starter, with instructions to
+merge changes while preserving customizations. The public starter contains no user
+file IDs, credentials or notes. Before files are ready, a brief message asks for
+Drive setup and a fresh copy. The full Drive guide remains intact.

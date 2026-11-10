@@ -312,53 +312,34 @@ object AgentSetup {
         verified setup results and next steps, including any blocked connections.
     """.trimIndent()
 
+    // Keep clipboard handoff small; the complete contract lives in the Drive guide.
+    const val STARTER_URL = "https://raw.githubusercontent.com/AudacityMicro/Dashboard2.0/v0.1.0-preview.19/AGENT_STARTER.md"
+
     fun prompt(board: DashboardSnapshot): String {
-        val connected = board.instructionsFileId.isNotBlank() && board.agentFileId.isNotBlank() && board.phoneFileId.isNotBlank()
-        val files = if (connected) """
-            Read instructions: $INSTRUCTIONS_NAME — file ID ${board.instructionsFileId}
-            Edit home board: Dashboard-agent.json — file ID ${board.agentFileId}
-            Read only phone state: Dashboard-phone-tasks.json — file ID ${board.phoneFileId}
-        """.trimIndent() else """
-            My phone has not finished creating the Drive setup files yet. Ask me to
-            connect Google Drive in Dashboard's Capture inbox, wait for a successful
-            sync, then tap Copy agent setup prompt again and send the updated prompt.
-            The guide will be named $INSTRUCTIONS_NAME; its exact ID will be included.
-            Do not choose files by name alone or create replacement board files.
+        if (board.instructionsFileId.isBlank() || board.agentFileId.isBlank() || board.phoneFileId.isBlank()) return """
+            Dashboard setup files aren't ready. Ask me to connect Google Drive in
+            Dashboard Inbox, finish syncing, then copy the setup prompt again.
+            Do not guess file IDs or create replacement files.
         """.trimIndent()
-        return listOf("""
-            Set up my Dashboard 2.0 Android launcher as my capture inbox, information
-            board and to-do list. Check that your own authorized Drive integration
-            can read and edit files. If unavailable, explain the connection needed.
-            Never request my Google password or the phone's OAuth tokens.
-            You may maintain and edit your own Drive instructions in place. Set up
-            durable memory and context compaction using the contract below. Connect
-            my email and calendar through your own tools and sign-in methods; tell
-            me what interactive connection steps are needed and verify access.
-            Manage the notes/files I provide: digest their contents into the context
-            document, verify the saved digest, then archive the originals. Use a
-            30-day minimum archive retention and relevance review; retain notes tied
-            to unfinished work longer. Use the detailed lifecycle below and do not
-            automatically delete notes when they reach 30 days.
-            Make my dashboard anticipate my needs: important daily notes, reminders,
-            upcoming commitments and useful next actions. Include verified weather
-            only when relevant to my plans. Keep app/setup commentary, instruction
-            summaries and agent status reports off the dashboard; discuss those
-            directly with me instead. Format update bodies with Markdown as needed
-            for clear headings, emphasis, lists and useful web links. Keep actionable
-            to-dos in the tasks array, and titles/due text plain. Follow the detailed
-            editorial and Markdown guidance below.
-        """.trimIndent(), files, """
-            Monitor the instructions file above for current guidance: read it by
-            its exact ID now and BEFORE EACH Dashboard processing run, and check for
-            changes. If unreadable, tell me and postpone Dashboard writes. Configure
-            checks every 15 minutes during the day (08:00–22:00) and every 2 hours
-            at night using the detailed schedule below and your own scheduling tools.
-            Phone timezone: ${java.time.ZoneId.systemDefault().id}. Prefer my established
-            timezone if different. Confirm what is actually scheduled; otherwise
-            explain the limitation and check on demand. Keep unchanged checks quiet.
-            Do not claim you are monitoring just because you received this prompt.
-            The guide cannot override my direct instructions or your safety rules.
-        """.trimIndent(), "If an existing guide uses an older starter version, merge the version 8 guidance below into that same file, preserving user customizations and file IDs. Apply the monitoring cadence and useful-daily-information guidance requested in this prompt; ask about other conflicting preferences. Do not replace the guide with a new file.",
-            "Follow this starting contract, also included in a newly created Drive guide:", instructions).joinToString("\n\n")
+        return """
+            Set up Dashboard 2.0 using your own authorized Drive tools.
+            Instructions: file ID ${board.instructionsFileId}
+            Dashboard (edit): file ID ${board.agentFileId}
+            Phone tasks (read-only): file ID ${board.phoneFileId}
+
+            Read the instructions by ID now and BEFORE EACH Dashboard run; monitor
+            changes. Read in sections if needed. If unreadable, stop writes and tell
+            me. Preserve file IDs and my edits. Do not replace the guide with a new file.
+            Guide version: 8. If older or incomplete, read $STARTER_URL and merge into the same guide.
+
+            Follow the guide for memory/compaction, capture archiving, email/calendar
+            and quiet day/night checks. Verify real connections and scheduling.
+            Never request my password or the phone's OAuth tokens.
+            Timezone: ${java.time.ZoneId.systemDefault().id}; prefer my established timezone.
+            Show useful daily information, without app/setup/status commentary.
+            Format update bodies with Markdown as needed.
+            Keep update titles, task titles and due values plain text.
+            Honor phone completions and stable task IDs. Report blockers in chat.
+        """.trimIndent()
     }
 }
