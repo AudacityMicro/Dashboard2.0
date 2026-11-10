@@ -5,7 +5,10 @@
 The home screen shows **Set up your agent** from first launch. Tap **Copy agent setup
 prompt** and paste it into your agent. The button also works offline; before the first
 successful Drive sync it explains how to connect and asks you to copy again afterward.
-After sync, the prompt includes all three exact Drive file IDs and the full contract.
+After sync, the compact prompt includes all three exact Drive file IDs and asks the
+agent to read the full contract from its Drive instructions file. It does not embed
+the full document in the clipboard. An older guide can be merged with the public,
+version-pinned [starter guide](AGENT_STARTER.md), preserving user edits and file IDs.
 
 Sync creates `Dashboard-agent-instructions.md` once alongside the two JSON files.
 The phone preserves later edits to that guide. Edit its contents in Drive to customize
@@ -42,8 +45,10 @@ an existing guide. Existing installations must copy the updated setup prompt to 
 agent to apply this change; installing an APK alone does not modify an old Drive guide.
 
 The canonical starter text is `AgentSetup.instructions` in
-`data/dashboard/src/main/java/de/mm20/launcher2/dashboard/AgentSetup.kt`, shared by
-the copied setup prompt and the initial Drive upload.
+`data/dashboard/src/main/java/de/mm20/launcher2/dashboard/AgentSetup.kt`, used for
+the initial Drive upload and mirrored in AGENT_STARTER.md. The copied setup prompt
+is a separate short handoff pointing to that guide; it retains essential monitoring,
+privacy, context, capture lifecycle and Markdown instructions without duplicating it.
 
 ### Digest and archive provided notes
 

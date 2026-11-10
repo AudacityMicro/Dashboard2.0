@@ -18,3 +18,5 @@ Continue publishing the signed `Dashboard-2.0-preview.apk` asset and its checksu
 against the merged source commit. Verify the signing certificate, package/version,
 GitHub asset digest and the permanent latest download link as described in
 [DASHBOARD.md](DASHBOARD.md). Never replace a published APK in place or commit keys.
+
+When changing the starter instructions, keep AGENT_STARTER.md identical to AgentSetup.instructions and update the compact prompt version and pinned STARTER_URL together. The public starter must contain no user-specific file IDs or credentials. The prompt tests enforce the public mirror and a compact handoff size.
