@@ -9,6 +9,11 @@ from the home content, leaving the Android status bar indicators.
 
 ## Use
 
+Optional health integration: add **Health** from the widget picker, then connect
+under **Settings → Health Connect**. Health sharing and agent food/goal edits are
+separate opt-ins. See [HEALTH_CONNECT.md](HEALTH_CONNECT.md) for setup and the agent
+contract. Remaining calories use food goal − eaten + active calories burned.
+
 Install the default debug APK, choose Dashboard as your Home app, then search for
 **Dashboard Inbox**. You can also long-press Dashboard's icon and pin **Capture inbox**.
 Save text, record voice, take a photo, or upload an image/file. Other apps can share

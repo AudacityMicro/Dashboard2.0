@@ -55,6 +55,15 @@ class LauncherApplication : Application(), CoroutineScope, ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: android.app.Activity) { de.mm20.launcher2.health.HealthVisibility.startedActivities++ }
+            override fun onActivityStopped(activity: android.app.Activity) { de.mm20.launcher2.health.HealthVisibility.startedActivities = (de.mm20.launcher2.health.HealthVisibility.startedActivities - 1).coerceAtLeast(0) }
+            override fun onActivityCreated(activity: android.app.Activity, state: android.os.Bundle?) = Unit
+            override fun onActivityResumed(activity: android.app.Activity) = Unit
+            override fun onActivityPaused(activity: android.app.Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, state: android.os.Bundle) = Unit
+            override fun onActivityDestroyed(activity: android.app.Activity) = Unit
+        })
 
         if (BuildConfig.BUILD_TYPE == "debug") initDebugMode()
 

@@ -104,6 +104,9 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
             put("id", t.id); put("title", t.title); put("completed", t.completed); put("due", t.due)
             put("source", if (t.local) "phone" else "agent")
         }) } })
+        if (meta("healthAgentFile").isNotBlank() && meta("healthPhoneFile").isNotBlank()) {
+            put("health", JSONObject().put("agentFileId", meta("healthAgentFile")).put("phoneFileId", meta("healthPhoneFile")))
+        }
     }.toString(2)
     companion object {
         const val EMPTY_BOARD = "{\"schemaVersion\":1,\"updates\":[],\"tasks\":[]}"

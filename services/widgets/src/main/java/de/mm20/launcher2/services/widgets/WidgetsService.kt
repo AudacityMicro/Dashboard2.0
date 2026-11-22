@@ -11,6 +11,7 @@ import de.mm20.launcher2.widgets.AppsWidget
 import de.mm20.launcher2.widgets.MusicWidget
 import de.mm20.launcher2.widgets.NotesWidget
 import de.mm20.launcher2.widgets.WeatherWidget
+import de.mm20.launcher2.widgets.HealthWidget
 import de.mm20.launcher2.widgets.Widget
 import de.mm20.launcher2.widgets.WidgetRepository
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +51,7 @@ class WidgetsService(
 
     fun getBuiltInWidgets(): List<BuiltInWidgetInfo> {
         return listOf(
+            BuiltInWidgetInfo(type = HealthWidget.Type, label = "Health"),
             BuiltInWidgetInfo(
                 type = WeatherWidget.Type,
                 label = context.getString(R.string.widget_name_weather),

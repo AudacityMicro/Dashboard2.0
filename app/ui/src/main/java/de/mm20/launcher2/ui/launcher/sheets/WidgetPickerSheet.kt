@@ -73,6 +73,7 @@ import de.mm20.launcher2.widgets.CalendarWidget
 import de.mm20.launcher2.widgets.MusicWidget
 import de.mm20.launcher2.widgets.NotesWidget
 import de.mm20.launcher2.widgets.WeatherWidget
+import de.mm20.launcher2.widgets.HealthWidget
 import de.mm20.launcher2.widgets.Widget
 import java.util.UUID
 import kotlin.math.roundToInt
@@ -388,6 +389,7 @@ fun WidgetPickerSheet(
                                     AppsWidget.Type -> AppsWidget(id)
                                     AppsWidget.FavoritesOnlyType -> AppsWidget.favoritesOnly(id)
                                     AppsWidget.SelectedAppsType -> AppsWidget.selectedApps(id)
+                                    HealthWidget.Type -> HealthWidget(id)
                                     NotesWidget.Type -> NotesWidget(id)
                                     else -> return@clickable
                                 }

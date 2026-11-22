@@ -29,6 +29,7 @@ sealed class Widget {
     companion object {
         fun fromDatabaseEntity(entity: WidgetEntity): Widget? {
             return when (entity.type) {
+                HealthWidget.Type -> HealthWidget(entity.id)
                 WeatherWidget.Type -> {
                     val config: WeatherWidgetConfig =
                         Json.decodeFromStringOrNull(entity.config?.takeIf { it.isNotBlank() })

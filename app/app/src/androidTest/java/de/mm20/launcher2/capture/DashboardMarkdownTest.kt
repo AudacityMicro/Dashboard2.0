@@ -137,7 +137,7 @@ class DashboardMarkdownTest {
     @Test fun setupPromptTeachesMarkdownWithValidJsonAndPreservesInstructionFileId() {
         val prompt = AgentSetup.prompt(DashboardSnapshot(emptyList(), emptyList(), "", 0,
             agentFileId = "board-file", phoneFileId = "phone-file", instructionsFileId = "guide-file"))
-        assertTrue(prompt.contains("Guide version: 8"))
+        assertTrue(prompt.contains("Guide version: 9"))
         assertTrue(prompt.contains("Markdown as needed"))
         assertTrue(prompt.contains("file ID guide-file"))
         assertTrue(prompt.contains("Keep update titles, task titles and due values plain text"))

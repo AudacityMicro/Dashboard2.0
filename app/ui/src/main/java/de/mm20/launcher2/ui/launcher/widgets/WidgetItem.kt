@@ -47,6 +47,7 @@ import de.mm20.launcher2.widgets.AppsWidget
 import de.mm20.launcher2.widgets.MusicWidget
 import de.mm20.launcher2.widgets.NotesWidget
 import de.mm20.launcher2.widgets.WeatherWidget
+import de.mm20.launcher2.widgets.HealthWidget
 import de.mm20.launcher2.widgets.Widget
 
 @Composable
@@ -127,6 +128,7 @@ fun WidgetItem(
             }
             AnimatedVisibility(!editMode || gridMode, modifier = if (gridMode) Modifier.weight(1f).fillMaxWidth() else Modifier) {
                 when (widget) {
+                    is HealthWidget -> de.mm20.launcher2.ui.launcher.widgets.health.HealthCard()
                     is WeatherWidget -> {
                         WeatherWidget(widget)
                     }

@@ -84,6 +84,7 @@ fun AppWidget(
                     is MusicWidget -> it.copy(id = widget.id)
                     is CalendarWidget -> it.copy(id = widget.id)
                     is AppsWidget -> it.copy(id = widget.id)
+                    is de.mm20.launcher2.widgets.HealthWidget -> it.copy(id = widget.id)
                     is NotesWidget -> it.copy(id = widget.id)
                 }
                 onWidgetUpdate(updatedWidget)

@@ -6,7 +6,7 @@ object AgentSetup {
 
     val instructions = """
         # Dashboard agent instructions
-        Guide version: 8
+        Guide version: 9
 
         Help the user stay organized with useful updates, reliable tasks and clear
         next actions. Prefer doing authorized work to repeatedly asking for approval.
@@ -299,6 +299,68 @@ object AgentSetup {
         manual Refresh and periodic background work, which Android may delay.
         Distinguish verified Drive changes from changes confirmed on the phone.
 
+        ## Optional Health Connect
+        Health is optional and separately enabled on the phone. Never ask for passwords,
+        tokens or permissions outside the user's choices. Read `phoneState.health` in the
+        existing phone-state file: `agentFileId` identifies Dashboard-health-agent.json
+        (you edit); `phoneFileId` identifies Dashboard-health-phone.json (read-only).
+        If absent, ask the user to enable Health Connect and agent access in Settings,
+        then sync. Do not create substitute files. Never write health commands into the
+        dashboard board, task file or instructions file. Read back acknowledgments.
+
+        The phone offers separate opt-ins for sharing permitted stats and allowing agent
+        food/goal edits. Respect `sharing`, `agentControl`, permissions and enabled state.
+        Only nutrition records can be written; other supported health/fitness records
+        are read-only. Clinical/FHIR documents and exercise route consent are not part
+        of this integration. Use only `availableTypes` returned by the phone. Missing,
+        stale, denied or unavailable data is unknown, not zero or a medical conclusion.
+        Keep health details out of public files and the home board unless useful and
+        requested; use your own authorized tools for reading these private Drive files.
+
+        Agent request schema (merge existing pending requests; do not overwrite them):
+        ```json
+        {"schemaVersion":1,"goal":{"revision":1,"dailyFoodKcal":2200,"creditActiveCalories":true},"foods":[{"id":"meal-unique-stable-id","revision":1,"name":"Lunch","at":"2026-11-22T12:30:00-05:00","kcal":550,"proteinGrams":30,"carbsGrams":60,"fatGrams":20,"estimated":true}],"reads":[]}
+        ```
+        The numeric goal is an example, not the user's target. Obtain the user's target
+        and use an increasing goal revision; null dailyFoodKcal clears the target. Default
+        remaining calories = food goal minus today's recorded eaten calories PLUS active
+        calories burned. Total burned is displayed separately and never added to this
+        budget. `creditActiveCalories:false` disables the activity credit if requested.
+        Do not invent a weight-loss target or assume incomplete food tracking is complete.
+
+        Log food only from the user's request or clearly established delegation. Use an
+        offset timestamp for actual consumption, not a planned future meal. Confirm
+        uncertain portions/calories or clearly mark estimates. Optional nutrients in grams:
+        proteinGrams, carbsGrams, fatGrams, fiberGrams, sugarGrams, sodiumGrams (not mg).
+        Persist each stable food ID and revision before submitting. Retry uncertain writes
+        with EXACTLY the same ID and revision; never mint a new ID just because a result
+        is late. Wait for `foodResults.status:logged`. Corrections keep the same ID and
+        increase revision; same revision with different content returns revision_conflict.
+        Removing a request does not delete a logged meal. Deletion requires the user's
+        Health Connect controls. Food written by other apps is never modified.
+
+        Request any permitted supported fitness record type through `reads`, for example:
+        ```json
+        {"id":"query-fresh-uuid","type":"StepsRecord","start":"2026-11-22T00:00:00-05:00","end":"2026-11-22T12:00:00-05:00","pageSize":25}
+        ```
+        Use a fresh query ID for each new query or page; repeated IDs with identical
+        content return the cached response. Use returned nextPageToken on a new query ID
+        with identical type/range to continue; never claim a partial page is all records.
+        Responses include readAt, typed SDK property names, named units, records and
+        nextPageToken. Keep request windows at most 31 days, pages 1-100 records, at most
+        10 reads and 200 foods per file, total request at most 512 KiB. Reduce page size
+        or time range after a large-response error. Preserve a checkpoint before removing
+        acknowledged requests. Do not automatically export the entire health history.
+
+        Background reads and older-history access require separate optional permissions
+        and device support. pending_foreground means wait until the launcher opens or ask
+        the user whether they want background access. Respect SDK access windows and all
+        permission errors. Handle revoked access by stopping related work. Schedules are
+        best-effort: Android may delay background sync. Check updatedAt/readAt before
+        using data. Never report food logged, a goal changed or a query complete until
+        the matching phone result confirms it. Health Connect totals include other apps'
+        records and deduplication rules; avoid manually summing overlapping sources.
+
         ## First connection
         Read this guide, phone state and existing board. Preserve useful content and
         assignments, remove obsolete agent-authored meta/status cards, and add only
@@ -313,7 +375,7 @@ object AgentSetup {
     """.trimIndent()
 
     // Keep clipboard handoff small; the complete contract lives in the Drive guide.
-    const val STARTER_URL = "https://raw.githubusercontent.com/AudacityMicro/Dashboard2.0/v0.1.0-preview.19/AGENT_STARTER.md"
+    const val STARTER_URL = "https://raw.githubusercontent.com/AudacityMicro/Dashboard2.0/v0.1.0-preview.21/AGENT_STARTER.md"
 
     fun prompt(board: DashboardSnapshot): String {
         if (board.instructionsFileId.isBlank() || board.agentFileId.isBlank() || board.phoneFileId.isBlank()) return """
@@ -330,7 +392,7 @@ object AgentSetup {
             Read the instructions by ID now and BEFORE EACH Dashboard run; monitor
             changes. Read in sections if needed. If unreadable, stop writes and tell
             me. Preserve file IDs and my edits. Do not replace the guide with a new file.
-            Guide version: 8. If older or incomplete, read $STARTER_URL and merge into the same guide.
+            Guide version: 9. If older or incomplete, read $STARTER_URL and merge into the same guide.
 
             Follow the guide for memory/compaction, capture archiving, email/calendar
             and quiet day/night checks. Verify real connections and scheduling.
