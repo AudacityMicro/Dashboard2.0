@@ -573,3 +573,15 @@ For older guides it links a version-pinned public starter, with instructions to
 merge changes while preserving customizations. The public starter contains no user
 file IDs, credentials or notes. Before files are ready, a brief message asks for
 Drive setup and a fresh copy. The full Drive guide remains intact.
+
+### Faster returns to Home
+
+A warm Home return keeps the last widget layout visible while its saved layout
+refreshes on a background thread. A late refresh cannot overwrite an edit started
+since the refresh began. New screen profiles still load their own layout normally.
+Returns without a matching app icon skip the empty fade/zoom; valid icon transitions
+remain supported. Startup shortcut/sync initialization and resume sync scheduling
+run off the UI thread. Rapid Home returns coalesce sync requests within 30 seconds;
+explicit captures, task edits and Refresh bypass that limit. The local dashboard
+continues checking saved data every five seconds while visible. Performance varies
+with device and whether Android has killed the launcher process.

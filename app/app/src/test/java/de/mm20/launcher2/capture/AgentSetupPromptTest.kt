@@ -37,7 +37,7 @@ class AgentSetupPromptTest {
     @Test fun publicStarterIsTheCompleteDriveGuideWithoutUserSpecificData() {
         val root = generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
             .first { File(it, "AGENT_STARTER.md").isFile }
-        val publicGuide = File(root, "AGENT_STARTER.md").readText(Charsets.UTF_8).trimEnd()
+        val publicGuide = File(root, "AGENT_STARTER.md").readText(Charsets.UTF_8).replace("\r\n", "\n").trimEnd()
         assertEquals(AgentSetup.instructions, publicGuide)
         assertTrue(publicGuide.length > 15000)
         assertTrue(AgentSetup.STARTER_URL.endsWith("/v0.1.0-preview.19/AGENT_STARTER.md"))
