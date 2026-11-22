@@ -342,6 +342,7 @@ class DashboardHomeTest {
     }
     @Test fun setupPromptIsAvailableOnHomeBeforeDriveConnection() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val expected = DashboardStore(context).use { AgentSetup.prompt(it.snapshot()) }
         ActivityScenario.launch(LauncherActivity::class.java).use {
             compose.waitUntil(10000) { compose.onAllNodesWithTag("agent-setup").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("copy-agent-setup").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
@@ -349,9 +350,8 @@ class DashboardHomeTest {
             compose.runOnIdle {
                 val clip = context.getSystemService(android.content.ClipboardManager::class.java).primaryClip
                 val prompt = requireNotNull(clip).getItemAt(0).text.toString()
-                assertTrue(prompt.contains(AgentSetup.INSTRUCTIONS_NAME))
-                assertTrue(prompt.contains("BEFORE EACH Dashboard"))
-                assertTrue(prompt.contains("Never request my Google password"))
+                assertEquals(expected, prompt)
+                assertTrue(prompt.length < 1600)
             }
         }
     }

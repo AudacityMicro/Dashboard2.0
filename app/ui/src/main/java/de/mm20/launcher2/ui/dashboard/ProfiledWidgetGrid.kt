@@ -75,27 +75,41 @@ fun ProfiledWidgetGrid(parent: String, tiles: List<GridTile>, modifier: Modifier
     var error by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<String?>(null) }
     var resumeVersion by remember { mutableIntStateOf(0) }
+    var editVersion by remember(parent, profile) { mutableIntStateOf(0) }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { resumeVersion++ }
     var hiddenDialog by remember { mutableStateOf(false) }
+    val currentTiles by rememberUpdatedState(tiles)
+    val currentEditing by rememberUpdatedState(editing)
+    fun populated(value: WidgetGridLayout): WidgetGridLayout {
+        val ids = currentTiles.map { it.id }.toSet()
+        var next = value.copy(cells = value.cells.filterKeys { it in ids }, hidden = value.hidden.intersect(ids),
+            autoHeights = value.autoHeights.filterKeys { it in ids })
+        currentTiles.filter { it.visible || currentEditing }.forEach { tile ->
+            try { next = next.add(tile.id, tile.rows, if (profile == GridProfile.Portrait || tile.id == "setup") next.columns else next.columns / 2) }
+            catch (_: IllegalStateException) { error = "Grid full. Make existing widgets smaller to add more." }
+        }
+        return next
+    }
     LaunchedEffect(parent, profile, resumeVersion) {
-        loaded = false
-        try { layout = withContext(Dispatchers.IO) { WidgetGridStore(context).load(parent, profile) }; loaded = true; error = "" }
+        // A warm return keeps the last layout on screen while disk refreshes in the background.
+        // New parents/profiles already start with loaded=false in their remembered state.
+        val revision = editVersion
+        try {
+            val fresh = withContext(Dispatchers.IO) { WidgetGridStore(context).load(parent, profile) }
+            error = ""
+            if (revision == editVersion) layout = populated(fresh)
+            loaded = true
+        }
         catch (failure: Exception) { if (failure is kotlinx.coroutines.CancellationException) throw failure; error = "Couldn't load this layout. Your saved layout is retained." }
     }
     LaunchedEffect(loaded, tiles.map { it.id to it.visible }, editing) {
         if (loaded) {
-            val ids = tiles.map { it.id }.toSet()
-            var next = layout.copy(cells = layout.cells.filterKeys { it in ids }, hidden = layout.hidden.intersect(ids),
-                autoHeights = layout.autoHeights.filterKeys { it in ids })
-            tiles.filter { it.visible || editing }.forEach { tile ->
-                try { next = next.add(tile.id, tile.rows, if (profile == GridProfile.Portrait || tile.id == "setup") next.columns else next.columns / 2) }
-                catch (_: IllegalStateException) { error = "Grid full. Make existing widgets smaller to add more." }
-            }
-            layout = next
+            layout = populated(layout)
         }
     }
     fun save(next: WidgetGridLayout, activated: String? = null, onSaved: () -> Unit = {}) {
         if (busy || !loaded) return
+        editVersion++ // An older resume read must not overwrite an edit made while it was loading.
         busy = true
         scope.launch {
             try {

@@ -52,7 +52,8 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
         board = withContext(Dispatchers.IO) { DashboardStore(app).use { it.snapshot() } }
         loaded = true
     }
-    fun sync() { context.sendBroadcast(Intent("${context.packageName}.dashboard.SYNC").setPackage(context.packageName)) }
+    fun sync(resuming: Boolean = false) { context.sendBroadcast(Intent("${context.packageName}.dashboard.SYNC")
+        .setPackage(context.packageName).putExtra("resume", resuming)) }
     fun change(work: (DashboardStore) -> Unit) { scope.launch {
         try {
             withContext(Dispatchers.IO) { DashboardStore(app).use(work) }
@@ -61,9 +62,10 @@ fun DashboardPanel(modifier: Modifier = Modifier, scroll: ScrollState = remember
     } }
     LaunchedEffect(lifecycle) {
         lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            sync()
+            var requestSync = true
             while (isActive) {
                 try { reload() } catch (_: Exception) { error = "Could not load dashboard." }
+                if (requestSync) { sync(resuming = true); requestSync = false }
                 delay(5000)
             }
         }

@@ -3,6 +3,7 @@ package de.mm20.launcher2.capture
 import android.content.Context
 import de.mm20.launcher2.dashboard.DashboardStore
 import de.mm20.launcher2.dashboard.AgentSetup
+import kotlinx.coroutines.launch
 
 /** The agent owns the incoming board; only this device writes the phone-state file. */
 internal object DashboardSync {
@@ -66,5 +67,17 @@ internal object DashboardSync {
 }
 
 class DashboardSyncReceiver : android.content.BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: android.content.Intent) { SyncQueue.enqueue(context) }
+    override fun onReceive(context: Context, intent: android.content.Intent) {
+        if (!gate.allow(android.os.SystemClock.elapsedRealtime(), intent.getBooleanExtra("resume", false))) return
+        val pending = goAsync()
+        val app = context.applicationContext
+        scope.launch {
+            try { runCatching { SyncQueue.enqueue(app) } }
+            finally { pending.finish() }
+        }
+    }
+    companion object {
+        private val gate = ResumeSyncGate()
+        private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+    }
 }

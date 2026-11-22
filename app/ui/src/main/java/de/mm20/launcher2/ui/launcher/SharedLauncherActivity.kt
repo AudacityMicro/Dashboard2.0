@@ -202,7 +202,7 @@ abstract class SharedLauncherActivity(
                                 .currentTransition
                                 .flowWithLifecycle(lifecycle, Lifecycle.State.RESUMED)
                                 .collect {
-                                    if (it != null) {
+                                    if (it?.startBounds != null && it.targetBounds != null) {
                                         enterTransitionProgress.value = 0f
                                         enterTransition = it
                                         enterTransitionProgress.animateTo(
@@ -210,6 +210,9 @@ abstract class SharedLauncherActivity(
                                             animationSpec = animMotionSpec
                                         )
                                         enterTransition = null
+                                    } else {
+                                        enterTransition = null
+                                        enterTransitionProgress.value = 100f
                                     }
                                 }
                         }

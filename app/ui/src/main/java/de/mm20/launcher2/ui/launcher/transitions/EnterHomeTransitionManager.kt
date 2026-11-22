@@ -40,7 +40,9 @@ class EnterHomeTransitionManager {
                 return
             }
         }
-        currentTransition.tryEmit(EnterHomeTransition())
+        // Without a matching icon there is no shared-element animation to draw.
+        // Keep the already-rendered launcher visible instead of fading it up from zero.
+        currentTransition.tryEmit(null)
     }
 
     fun clear() {

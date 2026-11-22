@@ -55,7 +55,6 @@ class LauncherApplication : Application(), CoroutineScope, ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
-        de.mm20.launcher2.capture.SyncQueue.install(this)
 
         if (BuildConfig.BUILD_TYPE == "debug") initDebugMode()
 
@@ -104,6 +103,8 @@ class LauncherApplication : Application(), CoroutineScope, ImageLoaderFactory {
                 )
             )
         }
+        // Shortcut registration, SQLite state and WorkManager setup must not block the first screen.
+        launch(Dispatchers.IO) { runCatching { de.mm20.launcher2.capture.SyncQueue.install(this@LauncherApplication) } }
     }
 
     override fun newImageLoader(): ImageLoader {
