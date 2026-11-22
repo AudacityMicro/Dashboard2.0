@@ -39,6 +39,8 @@ androidComponents.onVariants { variant ->
 }
 tasks.named("preBuild").configure { dependsOn(prepareSpeechModel) }
 dependencies {
+    api("androidx.health.connect:connect-client:1.1.0")
+    implementation(libs.kotlinx.coroutines.android)
     implementation("com.alphacephei:vosk-android:0.3.75@aar")
     implementation("net.java.dev.jna:jna:5.18.1@aar")
 }

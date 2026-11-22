@@ -118,6 +118,7 @@ import de.mm20.launcher2.widgets.CalendarWidget
 import de.mm20.launcher2.widgets.MusicWidget
 import de.mm20.launcher2.widgets.NotesWidget
 import de.mm20.launcher2.widgets.WeatherWidget
+import de.mm20.launcher2.widgets.HealthWidget
 import de.mm20.launcher2.widgets.Widget
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
@@ -152,6 +153,10 @@ fun ConfigureWidgetSheet(
                 is CalendarWidget -> ConfigureCalendarWidget(widget, onWidgetUpdated)
                 is AppsWidget -> if (!widget.config.favoritesOnly && !widget.config.selectedOnly) ConfigureFavoritesWidget(widget, onWidgetUpdated)
                 is MusicWidget -> ConfigureMusicWidget(widget, onWidgetUpdated)
+                is HealthWidget -> {
+                    val context = LocalContext.current
+                    androidx.compose.material3.TextButton(onClick = { context.startActivity(Intent().setClassName(context.packageName, "de.mm20.launcher2.health.HealthConnectActivity")) }) { Text("Health Connect settings") }
+                }
                 is NotesWidget -> ConfigureNotesWidget(widget, onWidgetUpdated)
             }
         }
@@ -689,6 +694,7 @@ fun ColumnScope.ConfigureAppWidget(
                     is MusicWidget -> it.copy(id = widget.id)
                     is CalendarWidget -> it.copy(id = widget.id)
                     is AppsWidget -> it.copy(id = widget.id)
+                    is HealthWidget -> it.copy(id = widget.id)
                     is NotesWidget -> it.copy(id = widget.id)
                 }
                 onWidgetUpdated(updatedWidget)

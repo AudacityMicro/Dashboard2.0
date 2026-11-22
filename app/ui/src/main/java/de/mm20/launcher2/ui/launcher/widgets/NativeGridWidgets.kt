@@ -9,6 +9,7 @@ import de.mm20.launcher2.ui.dashboard.GridTile
 import de.mm20.launcher2.ui.launcher.sheets.WidgetPickerSheet
 import de.mm20.launcher2.widgets.AppWidget
 import de.mm20.launcher2.widgets.AppsWidget
+import de.mm20.launcher2.widgets.HealthWidget
 import de.mm20.launcher2.widgets.Widget
 import kotlin.math.ceil
 
@@ -42,10 +43,12 @@ fun rememberNativeGridWidgets(parentId: String, editing: Boolean, onWidgetAdded:
         val iconsOnly = widget is AppsWidget && (widget.config.favoritesOnly || widget.config.selectedOnly)
         val rows = when {
             widget is AppWidget -> ceil(widget.config.height / 56.0).toInt().coerceIn(2, 32)
+            widget is HealthWidget -> 4
             iconsOnly -> 3
             else -> 5
         }
         GridTile("widget-${widget.id}", widget.getLabel(context), rows = rows,
+            supportsAutoHeight = widget is HealthWidget,
             onConfigure = if (iconsOnly) null else ({ configuring = widget }), onRemove = { removing = widget }) { modifier ->
             WidgetItem(widget = widget, modifier = modifier, editMode = false, gridMode = true,
                 onWidgetAdd = { added, _ -> model.addWidget(added) }, onWidgetUpdate = model::updateWidget,

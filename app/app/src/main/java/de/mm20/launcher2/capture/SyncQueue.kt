@@ -35,8 +35,11 @@ object SyncQueue {
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS).build())
     }
 }
-class RecoveryWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
-    override fun doWork(): Result { SyncQueue.enqueue(applicationContext); return Result.success() }
+class RecoveryWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        runCatching { de.mm20.launcher2.health.HealthRepository.refresh(applicationContext) }
+        SyncQueue.enqueue(applicationContext); Result.success()
+    }
 }
 class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -64,7 +67,8 @@ class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 }
                 if (isStopped || !DriveAuth.state(context).optBoolean("enabled")) return@withContext Result.success()
                 de.mm20.launcher2.dashboard.DashboardStore(context).use { it.setMeta("connection", "connected") }
-                val boardNeedsRetry = DashboardSync.sync(context, token, subject)
+                val healthNeedsRetry = HealthDriveSync.sync(context, token, subject)
+                val boardNeedsRetry = DashboardSync.sync(context, token, subject) || healthNeedsRetry
                 for (original in queued) {
                     activeId = original.id
                     if (isStopped || !DriveAuth.state(context).optBoolean("enabled")) return@withContext Result.success()

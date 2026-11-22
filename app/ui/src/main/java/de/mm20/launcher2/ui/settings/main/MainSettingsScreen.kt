@@ -42,6 +42,9 @@ fun MainSettingsScreen() {
                         context.startActivity(Intent().setClassName(context.packageName,
                             "de.mm20.launcher2.updates.UpdateActivity").putExtra("automatic", true))
                     })
+                Preference(title = "Health Connect", summary = "Calories, health permissions and agent access", onClick = {
+                    context.startActivity(Intent().setClassName(context.packageName, "de.mm20.launcher2.health.HealthConnectActivity"))
+                })
                 Preference(title = "Voice recordings", summary = "Choose audio, local transcripts, or both",
                     onClick = { backStack.add(VoiceRecordingSettingsRoute) })
                 Preference(
