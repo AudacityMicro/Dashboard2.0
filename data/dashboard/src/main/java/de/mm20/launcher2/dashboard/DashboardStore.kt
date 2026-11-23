@@ -32,7 +32,6 @@ data class AgentBoard(val updates: List<AgentUpdate>, val tasks: List<BoardTask>
                     field(it, "due", 100, true))
             } }
             require(messages.map { it.id }.distinct().size == messages.size && todos.map { it.id }.distinct().size == todos.size) { "Duplicate board IDs" }
-            require(todos.none { it.id.startsWith("local-") }) { "local- IDs are reserved for phone tasks" }
             return AgentBoard(messages, todos)
         }
     }
@@ -55,8 +54,28 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
     fun setMeta(key: String, value: String) { writableDatabase.insertWithOnConflict("meta", null,
         ContentValues().apply { put("key", key); put("value", value) }, SQLiteDatabase.CONFLICT_REPLACE) }
     fun acceptBoard(raw: String) {
-        AgentBoard.parse(raw) // Validate fully before replacing the last-known-good copy.
-        setMeta("board", raw)
+        val board = AgentBoard.parse(raw)
+        val json = JSONObject(raw)
+        require(!json.has("acknowledgedTaskEdits") || json.get("acknowledgedTaskEdits") is JSONArray)
+        val acks = json.optJSONArray("acknowledgedTaskEdits") ?: JSONArray()
+        require(acks.length() <= 2000)
+        // Validate every receipt before changing any task or replacing the cached board.
+        val receipts = (0 until acks.length()).map { acks.getJSONObject(it).let { ack ->
+            val device = ack.getString("deviceId"); val task = ack.getString("taskId"); val revision = ack.getLong("revision")
+            require(device.isNotBlank() && device.length <= 100 && task.isNotBlank() && task.length <= 200 && revision > 0 && ack.getDouble("revision") == revision.toDouble())
+            Triple(device, task, revision)
+        } }
+        transaction {
+            for ((device, task, revision) in receipts) {
+                val edit = meta("taskEdit-$task").takeIf { it.isNotBlank() }?.let { JSONObject(it) }
+                if (device == meta("deviceId") && edit?.getLong("revision") == revision && board.tasks.any { it.id == task }) {
+                    writableDatabase.delete("completions", "id=?", arrayOf(task))
+                    writableDatabase.delete("local_tasks", "id=?", arrayOf(task))
+                    writableDatabase.delete("meta", "key=?", arrayOf("taskEdit-$task"))
+                }
+            }
+            setMeta("board", raw)
+        }
     }
     private inline fun transaction(work: () -> Unit) {
         val db = writableDatabase; db.beginTransaction()
@@ -68,6 +87,7 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
         transaction {
             writableDatabase.insertOrThrow("local_tasks", null, ContentValues().apply { put("id", id); put("title", trimmed) })
             bumpRevision()
+            recordEdit(BoardTask(id, trimmed, false, "", true))
         }
         return id
     }
@@ -77,8 +97,24 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
             put("id", task.id); put("completed", if (completed) 1 else 0)
         }, SQLiteDatabase.CONFLICT_REPLACE)
         bumpRevision()
+        recordEdit(task.copy(completed = completed))
     }
     private fun bumpRevision() = setMeta("revision", ((meta("revision").toLongOrNull() ?: 0) + 1).toString())
+    private fun recordEdit(task: BoardTask, legacy: Boolean = false) {
+        setMeta("taskEdit-${task.id}", JSONObject().put("id", task.id).put("title", task.title).put("completed", task.completed)
+            .put("due", task.due).put("source", if (task.local) "phone" else "agent").put("revision", meta("revision").toLong())
+            .put("changedAt", if (legacy) JSONObject.NULL else java.time.Instant.now().toString()).put("legacy", legacy).toString())
+    }
+    private fun initializeDeviceEdits() = transaction {
+        if (meta("deviceId").isBlank()) setMeta("deviceId", UUID.randomUUID().toString())
+        if (meta("taskEditsInitialized") != "true") {
+            val overrides = readableDatabase.rawQuery("SELECT id FROM completions", null).use { c -> buildSet { while (c.moveToNext()) add(c.getString(0)) } }
+            for (task in snapshot().tasks.filter { it.local || it.id in overrides }) if (meta("taskEdit-${task.id}").isBlank()) {
+                bumpRevision(); recordEdit(task, legacy = true)
+            }
+            setMeta("taskEditsInitialized", "true")
+        }
+    }
     fun snapshot(): DashboardSnapshot {
         val remote = meta("board").let { if (it.isEmpty()) AgentBoard(emptyList(), emptyList()) else AgentBoard.parse(it) }
         val checks = readableDatabase.rawQuery("SELECT id,completed FROM completions", null).use { c ->
@@ -87,7 +123,7 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
         val local = readableDatabase.rawQuery("SELECT id,title,completed FROM local_tasks ORDER BY rowid", null).use { c ->
             buildList { while (c.moveToNext()) add(BoardTask(c.getString(0), c.getString(1), c.getInt(2) == 1, "", true)) }
         }
-        return DashboardSnapshot(remote.updates, (remote.tasks.map { it.copy(completed = checks[it.id] ?: it.completed) } + local)
+        return DashboardSnapshot(remote.updates, (remote.tasks.filter { t -> local.none { it.id == t.id } }.map { it.copy(completed = checks[it.id] ?: it.completed) } + local)
             .sortedBy { it.completed }, meta("status"), meta("lastSync").toLongOrNull() ?: 0, meta("agentFile"), meta("phoneFile"),
             if (meta("instructionsReady") == "true") meta("instructionsFile") else "", meta("setupHidden") == "true",
             when (meta("connection")) {
@@ -97,8 +133,14 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
                 else -> if (meta("agentFile").isBlank()) "Connect Google Drive through the menu’s Capture inbox." else ""
             })
     }
-    fun phoneState(): String = JSONObject().apply {
+    fun phoneState(): String {
+        initializeDeviceEdits()
+        return JSONObject().apply {
         put("schemaVersion", 1); put("revision", meta("revision").toLongOrNull() ?: 0)
+        put("deviceId", meta("deviceId")); put("platform", "android")
+        put("taskEdits", JSONArray().apply {
+            readableDatabase.rawQuery("SELECT value FROM meta WHERE key LIKE 'taskEdit-%'", null).use { c -> while (c.moveToNext()) put(JSONObject(c.getString(0))) }
+        })
         put("updatedAt", java.time.Instant.now().toString())
         put("tasks", JSONArray().apply { snapshot().tasks.forEach { t -> put(JSONObject().apply {
             put("id", t.id); put("title", t.title); put("completed", t.completed); put("due", t.due)
@@ -107,7 +149,8 @@ class DashboardStore(context: Context, name: String = "dashboard.db") : SQLiteOp
         if (meta("healthAgentFile").isNotBlank() && meta("healthPhoneFile").isNotBlank()) {
             put("health", JSONObject().put("agentFileId", meta("healthAgentFile")).put("phoneFileId", meta("healthPhoneFile")))
         }
-    }.toString(2)
+        }.toString(2)
+    }
     companion object {
         const val EMPTY_BOARD = "{\"schemaVersion\":1,\"updates\":[],\"tasks\":[]}"
     }

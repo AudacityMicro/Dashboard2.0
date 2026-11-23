@@ -1,0 +1,27 @@
+name: Windows companion
+on:
+  pull_request:
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  push:
+    branches: [main]
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build native widget and run offline checks
+        shell: pwsh
+        run: ./windows/build.ps1 -Test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-windows-development-preview
+          path: |
+            windows/bin/Dashboard.exe
+            windows/bin/Dashboard.exe.config
+            windows/bin/*.dll
+            windows/README.md
+            windows/licenses/
