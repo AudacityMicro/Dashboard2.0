@@ -37,16 +37,24 @@ namespace DashboardWindows {
         void Data(IntPtr wave,uint msg,IntPtr instance,IntPtr p,IntPtr other) {
             if(msg!=0x3C0) return;
             try {
-                var h=(Header)Marshal.PtrToStructure(p,typeof(Header));
-                lock(gate) if(file!=null && h.recorded>0 && file.Length+h.recorded <= 25*1024*1024) { var b=new byte[h.recorded]; Marshal.Copy(h.data,b,0,b.Length); file.Write(b,0,b.Length); }
-                if(running) waveInAddBuffer(wave,p,size);
+                lock(gate) {
+                    // A late driver callback must never dereference a header freed during Stop.
+                    if(file==null || !headers.Contains(p)) return;
+                    var h=(Header)Marshal.PtrToStructure(p,typeof(Header));
+                    if(h.recorded>0 && file.Length+h.recorded <= 25*1024*1024) { var b=new byte[h.recorded]; Marshal.Copy(h.data,b,0,b.Length); file.Write(b,0,b.Length); }
+                    if(running) waveInAddBuffer(wave,p,size);
+                }
             } catch { running=false; }
         }
         public void Dispose() {
             running=false;
-            if(handle!=IntPtr.Zero) { waveInReset(handle); foreach(var p in headers) { waveInUnprepareHeader(handle,p,size); Marshal.FreeHGlobal(p); } headers.Clear(); waveInClose(handle); handle=IntPtr.Zero; }
-            foreach(var pin in pins) if(pin.IsAllocated) pin.Free(); pins.Clear();
-            lock(gate) if(file!=null) { Finish(file); file.Dispose(); file=null; }
+            if(handle!=IntPtr.Zero) waveInReset(handle);
+            lock(gate) {
+                if(handle!=IntPtr.Zero) { foreach(var p in headers) { waveInUnprepareHeader(handle,p,size); Marshal.FreeHGlobal(p); } headers.Clear(); waveInClose(handle); handle=IntPtr.Zero; }
+                foreach(var pin in pins) if(pin.IsAllocated) pin.Free(); pins.Clear();
+                if(file!=null) { Finish(file); file.Dispose(); file=null; }
+            }
+            GC.KeepAlive(callback);
         }
         public static void Finish(Stream stream) {
             long length=stream.Length; if(length<44 || length>25*1024*1024) throw new InvalidDataException("Invalid recording length.");

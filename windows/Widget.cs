@@ -114,7 +114,8 @@ namespace DashboardWindows {
                     var j=Json.Read<Dictionary<string,object>>(s.health);
                     if(j.ContainsKey("sharing") && Convert.ToBoolean(j["sharing"]) && j.ContainsKey("today")) {
                         var today=(Dictionary<string,object>)j["today"]; var p=new StackPanel();
-                        Func<string,string> kcal=key=>today.ContainsKey(key)&&today[key]!=null?Math.Round(Convert.ToDouble(today[key])).ToString("0"):"—";
+                        bool current=today.ContainsKey("date") && Convert.ToString(today["date"])==DateTime.Today.ToString("yyyy-MM-dd");
+                        Func<string,string> kcal=key=>current && today.ContainsKey(key)&&today[key]!=null?Math.Round(Convert.ToDouble(today[key])).ToString("0"):"—";
                         p.Children.Add(Text("Eaten "+kcal("consumedKcal")+"   ·   Remaining "+kcal("remainingKcal")+"   ·   Burned "+kcal("totalBurnedKcal")+" kcal"));
                         var updated=today.ContainsKey("updatedAt")?DateTimeOffset.FromUnixTimeMilliseconds(Convert.ToInt64(today["updatedAt"])).ToLocalTime().ToString("g"):"unknown time";
                         p.Children.Add(Text("Phone snapshot · "+Convert.ToString(today["date"])+" · updated "+updated)); body.Children.Add(Card(p));
