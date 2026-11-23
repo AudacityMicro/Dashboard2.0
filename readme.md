@@ -2,6 +2,8 @@
 
 **[Download Android APK](https://github.com/AudacityMicro/Dashboard2.0/releases/latest/download/Dashboard-2.0-preview.apk)**
 
+**[Download Windows widget](https://github.com/AudacityMicro/Dashboard2.0/releases/latest/download/Dashboard-Windows.zip)** · [Windows setup and build instructions](windows/README.md)
+
 [Preview release and APK checksum](https://github.com/AudacityMicro/Dashboard2.0/releases/latest) · [Installation and Google Drive setup](DASHBOARD.md) · [Agent setup](AGENT_BOARD.md)
 
 [Website](https://audacitymicro.github.io/Dashboard2.0/) · [Privacy policy](https://audacitymicro.github.io/Dashboard2.0/privacy.html) · [Terms](https://audacitymicro.github.io/Dashboard2.0/terms.html)

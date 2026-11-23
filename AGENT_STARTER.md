@@ -1,5 +1,5 @@
 # Dashboard agent instructions
-Guide version: 9
+Guide version: 10
 
 Help the user stay organized with useful updates, reliable tasks and clear
 next actions. Prefer doing authorized work to repeatedly asking for approval.
@@ -225,8 +225,8 @@ a complete snapshot with schemaVersion, revision, updatedAt and tasks. Tasks
 have id, title, completed, due and source (phone or agent). Check updatedAt
 for freshness; sync is eventual, and revision is not a lock or acknowledgment.
 Honor the user's explicit completion/uncompletion for a stable task ID.
-IDs starting local- are phone-added tasks: do not copy them into the agent
-board. There is no phone task deletion/title-edit or multi-device protocol.
+Older phone builds do not support multi-device acknowledgments: update
+the phone to Preview 22+ before using the Windows task-edit protocol below.
 
 ## Write the home board
 Make the dashboard a useful briefing for the user's day. Anticipate what
@@ -283,14 +283,76 @@ body string, escape newlines as \n and quote characters as required by JSON.
 Use stable task IDs for the same logical assignment.
 Use a fresh ID for a genuinely new task. Retire an ID when the
 assignment is removed. Title/due changes do not reset phone completion.
-Updates and tasks each have their own unique-ID namespace. Do not use local-
-task IDs. Optional body/due default to empty and completed defaults to false.
+Updates and tasks each have their own unique-ID namespace. Do not invent
+local- IDs; existing phone local- IDs can be promoted through the device
+acknowledgment protocol below. Optional body/due default to empty and
+completed defaults to false.
 
 Limits: file 512 KiB; 50 updates; 200 tasks; IDs 100 characters; update titles
 200; bodies 4000; task titles 300; due text 100. IDs/titles must be nonblank.
 Read back writes to verify them. The phone refreshes on launcher resume,
 manual Refresh and periodic background work, which Android may delay.
 Distinguish verified Drive changes from changes confirmed on the phone.
+
+## Windows companion and device task edits
+The Windows companion uses its own Google sign-in in the same Cloud project,
+its own encrypted local storage, and the existing board/phone/instructions files.
+It creates Dashboard-windows-<deviceId>-tasks.json. Register every supplied Windows
+state file ID in this guide and your durable state; never write device-state files.
+Phone Preview 22+ exports deviceId, platform and taskEdits in its existing phone
+file. Windows exports the same fields in its own state file. Do not infer a
+connection, registered device or active schedule until you verify the actual files.
+
+The tasks array is a display snapshot, NOT a fresh edit on every export. Each
+pending taskEdits entry contains id, title, completed, due, source, revision and
+changedAt. revision is monotonic within that device. changedAt is the UTC edit
+time, not the file's updatedAt. Legacy migrated phone overrides have legacy:true
+and changedAt:null: treat those as baseline state, not edits made at migration.
+Persist your per-device/task revision ledger before changing the agent board.
+Process each edit once; never treat an unchanged snapshot as a new user action.
+
+Read ALL registered device states and the current board before reconciling.
+Merge edits independently by task ID: checking different items on phone and
+desktop within one refresh window must preserve BOTH edits. If both devices
+choose the same completed value for one task, coalesce them and acknowledge
+every observed revision without asking a needless conflict question. A full
+device tasks snapshot is never permission to undo another device's edits.
+For the same logical task, prefer the latest explicit user edit when timestamps
+are trustworthy. For close/unknown times, clock skew or ambiguous intent, ask the
+user instead of silently undoing a choice. Do not compare revision numbers across
+different devices. Preserve stable IDs and unrelated tasks, and merge concurrent
+agent edits using Drive ETag/version preconditions rather than blind replacement.
+
+Publish the reconciled task under its existing ID in Dashboard-agent.json, then
+include exact receipts in its optional acknowledgedTaskEdits array, for example:
+[{"deviceId":"exact-device-id","taskId":"exact-task-id","revision":7}]
+Only acknowledge revisions you read, persist and resolve. A newer local revision
+must remain pending. Keep the matching task in the board while acknowledging it.
+The device clears only the exact acknowledged edit, then follows the reconciled
+board value. This prevents an old local completion from overriding another device.
+Phone-created local- tasks may be promoted into the shared board WITH their exact
+acknowledgment; the updated phone removes its local copy in the same transaction.
+Do not mint replacement IDs or show duplicate phone/local/shared copies. There is
+no delete-task command through receipts. Do not acknowledge an edit by dropping
+the task. Older agents/boards without receipts leave local edits intact.
+
+Read back and verify the board, then checkpoint all processed revisions. Retain
+receipts until a later device snapshot confirms that revision is no longer pending;
+only then compact them. Respect the 512 KiB/200-task board limit and 2000 receipts.
+If a device is offline, preserve its receipts and ledger; don't assume removal is
+confirmation. Report blockers in direct chat, never as operational dashboard cards.
+
+Windows captures use the same Dashboard-<uuid>.json manifest and stable capture
+UUID contract, with optional devicePlatform:windows. WAV audio is audio/wav.
+Voice modes preserve the user's transcript-only/audio-only/both choice. Missing
+local Windows speech engines can leave transcript-only captures pending locally;
+do not claim a transcription/upload succeeded without the manifest. The Windows
+widget displays the phone's explicitly shared health snapshot only; it cannot
+read Health Connect directly. Check the phone snapshot's timestamp and date, not
+just when Windows last downloaded it. Windows does not write health commands.
+Do not archive board, device-state, health request/result or instruction files as
+if they were capture notes. Keep the user's established monitoring cadence and
+memory/compaction process across devices; adding Windows is not a new agent.
 
 ## Optional Health Connect
 Health is optional and separately enabled on the phone. Never ask for passwords,

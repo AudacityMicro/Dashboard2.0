@@ -21,7 +21,7 @@ verify its own scheduler, update existing schedules and keep unchanged checks qu
 Copying it does not itself start monitoring. User instructions
 and agent safety rules still take precedence over file contents.
 
-### Starter guide version 8
+### Starter guide version 10
 
 The starter prompt explicitly authorizes the agent to maintain its own guide in
 place, merge user changes, keep a recoverable prior version and record revisions.
@@ -39,7 +39,7 @@ commitments, authorization boundaries and deduplication history; larger ledgers 
 indexed archives rather than silently dropping records. External actions require
 reconciliation after an interruption, rather than assuming exactly-once execution.
 
-The version 8 prompt asks an agent receiving an older guide to merge the new guidance
+The version 10 prompt asks an agent receiving an older guide to merge the new guidance
 into that same file while preserving customizations. The phone still never overwrites
 an existing guide. Existing installations must copy the updated setup prompt to their
 agent to apply this change; installing an APK alone does not modify an old Drive guide.
@@ -52,7 +52,7 @@ privacy, context, capture lifecycle and Markdown instructions without duplicatin
 
 ### Digest and archive provided notes
 
-The version 8 guide authorizes the agent to manage Dashboard captures and other files
+The version 10 guide authorizes the agent to manage Dashboard captures and other files
 the user explicitly provides for this workflow. It reads/interprets the original,
 merges useful information into `Dashboard-agent-memory.md` (the context document),
 and verifies context/state/task writes before moving originals. Unsupported or
@@ -96,10 +96,20 @@ Each task has `id`, `title`, `completed`, `due` and `source` (`phone` or `agent`
 is a complete snapshot, not an event stream. Revision is informational, not an
 acknowledgment or locking mechanism. Synchronization is eventual, so check its timestamp.
 
-A user's explicit completion/uncompletion on the phone takes precedence for that
-stable task ID. Honor these choices in your planning. Phone-added IDs start with
-`local-`; leave those tasks in the phone-owned list instead of copying them into the
-agent board. There is no task deletion/edit-title protocol or multi-device merging yet.
+Honor explicit user edits across all registered devices. Preview 22+ adds a stable
+`deviceId` and pending `taskEdits` with per-device revisions and edit timestamps.
+The Windows companion writes its own `Dashboard-windows-<deviceId>-tasks.json` file;
+never overwrite the phone file from Windows. The agent resolves pending edits and
+publishes exact `{deviceId, taskId, revision}` receipts in the board's optional
+`acknowledgedTaskEdits` array. A device clears only its matching revision, so old
+receipts cannot undo newer edits. Keep the matching task in the board while acking.
+
+Existing phone `local-` tasks may be promoted into the shared board with their
+exact acknowledgment; the phone removes its local copy atomically. Do not invent
+new local- IDs. Legacy phone builds need updating before this protocol is used.
+The full reconciliation/compaction contract is in guide version 10, section
+[Windows companion and device task edits](AGENT_STARTER.md#windows-companion-and-device-task-edits).
+See [Windows setup/build instructions](windows/README.md) for the native companion.
 
 ## Write information and assigned tasks
 
@@ -159,8 +169,9 @@ The UI does not execute commands or treat update contents as agent instructions.
 Limits: 512 KiB per agent file, at most 50 updates and 200 tasks; IDs up to 100 characters,
 update titles 200, bodies 4000, task titles 300, due text 100. IDs/titles must be nonblank.
 `body`, `due`, and `completed` may be omitted (defaults: empty, empty, false).
-Task IDs beginning with `local-` are reserved for the phone and are rejected in the
-incoming board. Both `updates` and `tasks` arrays are required; empty arrays are valid.
+Do not invent `local-` IDs: preserve those IDs only when promoting real phone tasks
+with matching revision acknowledgments. Both `updates` and `tasks` arrays are
+required; empty arrays are valid. At most 2000 task receipts are accepted.
 
 The phone polls on launcher resume, manual Refresh, and periodic background work.
 It keeps the last valid board offline. An invalid file shows an error and preserves
@@ -169,4 +180,4 @@ instantly or that the phone's last sync includes changes made afterward.
 
 Voice capture manifests can declare `voiceMode` and `transcriptFileId`. In `transcript` mode the primary Drive payload is text; audio stays local. In `audio` mode there is no local transcript. In `both` mode the optional text sidecar belongs to the same capture UUID: digest and archive all linked Drive files together, avoiding duplicate processing. Existing user-owned Drive guides are never overwritten automatically; copy the updated setup prompt to merge this guidance.
 
-The version 8 setup prompt asks the agent to use Markdown where it improves scanning. For an existing agent, copy the updated setup prompt and have it merge this guidance into the existing Drive instructions file by ID, preserving user customizations.
+The version 10 setup prompt asks the agent to use Markdown where it improves scanning. For an existing agent, copy the updated setup prompt and have it merge this guidance into the existing Drive instructions file by ID, preserving user customizations.
