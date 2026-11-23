@@ -16,12 +16,10 @@ jobs:
       - name: Build native widget and run offline checks
         shell: pwsh
         run: ./windows/build.ps1 -Test
+      - name: Package verified updater files
+        shell: pwsh
+        run: ./windows/package.ps1 -BuildDirectory windows/bin -Destination windows/bin/Dashboard-Windows.zip
       - uses: actions/upload-artifact@v4
         with:
           name: dashboard-windows-development-preview
-          path: |
-            windows/bin/Dashboard.exe
-            windows/bin/Dashboard.exe.config
-            windows/bin/*.dll
-            windows/README.md
-            windows/licenses/
+          path: windows/bin/Dashboard-Windows.zip

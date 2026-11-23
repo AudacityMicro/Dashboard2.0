@@ -22,15 +22,22 @@ namespace DashboardWindows {
     public static class Program {
         [STAThread] public static void Main(string[] args) {
             ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
+            if(args.Contains("--exit")) { try { using(var signal=EventWaitHandle.OpenExisting("Local\\DashboardWindowsWidget.Exit")) signal.Set(); } catch(WaitHandleCannotBeOpenedException) {} return; }
             bool created; using(var single=new Mutex(true,"Local\\DashboardWindowsWidget",out created)) {
-                if(!created) return;
+                if(!created) { try { using(var signal=EventWaitHandle.OpenExisting("Local\\DashboardWindowsWidget.Reveal")) signal.Set(); } catch(WaitHandleCannotBeOpenedException) {} return; }
                 try {
                     var root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Dashboard2.0","Windows");
                     if(args.Length==2 && args[0]=="--test-data") root=Path.GetFullPath(args[1]);
                     var app=new Application(); app.ShutdownMode=ShutdownMode.OnMainWindowClose;
                     var styles="<ResourceDictionary xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><Style TargetType='Button'><Setter Property='Foreground' Value='White'/><Setter Property='Background' Value='#253F4959'/><Setter Property='BorderThickness' Value='0'/><Setter Property='Padding' Value='12,8'/><Setter Property='Margin' Value='3'/><Setter Property='Cursor' Value='Hand'/><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='Button'><Border Background='{TemplateBinding Background}' CornerRadius='12' Padding='{TemplateBinding Padding}'><ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center'/></Border></ControlTemplate></Setter.Value></Setter></Style><Style TargetType='TextBox'><Setter Property='Background' Value='#353F4959'/><Setter Property='Foreground' Value='White'/><Setter Property='CaretBrush' Value='White'/><Setter Property='BorderThickness' Value='0'/><Setter Property='Padding' Value='10'/><Setter Property='Margin' Value='3'/></Style><Style TargetType='CheckBox'><Setter Property='Foreground' Value='White'/><Setter Property='Margin' Value='4,7'/></Style></ResourceDictionary>";
                     app.Resources=(ResourceDictionary)System.Windows.Markup.XamlReader.Parse(styles);
-                    app.Run(new Widget(new Store(root)));
+                    var widget=new Widget(new Store(root));
+                    using(var signal=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\DashboardWindowsWidget.Reveal"))
+                    using(var exit=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\DashboardWindowsWidget.Exit")) {
+                        var wait=ThreadPool.RegisterWaitForSingleObject(signal,(state,timedOut)=>app.Dispatcher.BeginInvoke(new Action(()=>widget.Reveal())),null,Timeout.Infinite,false);
+                        var exitWait=ThreadPool.RegisterWaitForSingleObject(exit,(state,timedOut)=>app.Dispatcher.BeginInvoke(new Action(()=>widget.RequestExit())),null,Timeout.Infinite,false);
+                        try { app.Run(widget); } finally { wait.Unregister(null); exitWait.Unregister(null); }
+                    }
                 } catch(Exception e) { MessageBox.Show("Dashboard could not start. Your data has not been reset.\n"+e.Message,"Dashboard"); }
             }
         }
@@ -38,42 +45,71 @@ namespace DashboardWindows {
     public sealed class Widget : Window {
         readonly Store store; readonly Google google; readonly Sync sync; readonly HttpClient http;
         readonly StackPanel body=new StackPanel(); readonly TextBlock status=Text("");
-        readonly Button voice=Button("●",null); readonly DispatcherTimer timer=new DispatcherTimer(), clock=new DispatcherTimer();
+        readonly Button voice=CaptureButton(CaptureIcon.Microphone,"Voice note · press and hold",null); readonly DispatcherTimer timer=new DispatcherTimer(), clock=new DispatcherTimer();
         readonly CancellationTokenSource lifetime=new CancellationTokenSource();
         readonly SolidColorBrush surface=new SolidColorBrush();
-        Recorder recording; Capture active; DateTime began; bool stopping, rendering;
-        public Widget(Store store) {
+        Recorder recording; Capture active; DateTime began; bool stopping, rendering, exitRequested, pinned;
+        readonly List<System.Windows.Controls.Primitives.Thumb> layoutHandles=new List<System.Windows.Controls.Primitives.Thumb>();
+        readonly TextBlock elapsed=Text("");
+        readonly StackPanel liveVoice=new StackPanel();
+        readonly ProgressBar audioLevel=new ProgressBar { Minimum=0,Maximum=1,Width=42,Height=6,Margin=new Thickness(0,4,0,0),Foreground=Brushes.DeepSkyBlue,Background=new SolidColorBrush(Color.FromArgb(80,120,140,160)) };
+        System.Windows.Forms.NotifyIcon tray;
+        Window settingsDialog;
+        public Widget(Store store,bool desktopIntegration=true) {
             this.store=store; http=new HttpClient { Timeout=TimeSpan.FromSeconds(60),MaxResponseContentBufferSize=2*1024*1024 };
             google=new Google(store,http); sync=new Sync(store,google);
             var c=store.Snapshot().config;
+            pinned=c.pinned;
             surface.Color=Color.FromArgb((byte)(255*c.opacity),18,23,31);
             Title="Dashboard Windows"; WindowStyle=WindowStyle.None; AllowsTransparency=true; Background=Brushes.Transparent;
+            SourceInitialized+=(sender,e)=>System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle).AddHook(WindowMessage);
             Foreground=Brushes.White; FontFamily=new FontFamily("Segoe UI"); FontSize=14;
             Width=Math.Max(300,Math.Min(c.width,SystemParameters.WorkArea.Width)); Height=Math.Max(300,Math.Min(c.height,SystemParameters.WorkArea.Height));
             MinWidth=300; MinHeight=300; Left=Math.Max(SystemParameters.VirtualScreenLeft,Math.Min(c.left,SystemParameters.WorkArea.Right-100));
-            Top=Math.Max(SystemParameters.VirtualScreenTop,Math.Min(c.top,SystemParameters.WorkArea.Bottom-100)); Topmost=c.topmost; ResizeMode=ResizeMode.CanResizeWithGrip;
+            Top=Math.Max(SystemParameters.VirtualScreenTop,Math.Min(c.top,SystemParameters.WorkArea.Bottom-100)); Topmost=c.topmost; ResizeMode=ResizeMode.CanResize; ShowInTaskbar=false;
             var root=new Grid { Margin=new Thickness(10) }; Content=root;
             root.RowDefinitions.Add(new RowDefinition { Height=GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height=GridLength.Auto });
-            var bar=new DockPanel(); var menu=Button("⋮",()=>Menu()); menu.ToolTip="Menu"; DockPanel.SetDock(menu,Dock.Right); bar.Children.Add(menu);
-            var title=Text("Dashboard"); title.FontSize=13; title.Opacity=0.75; title.VerticalAlignment=VerticalAlignment.Center; title.Margin=new Thickness(12,0,0,0);
-            title.MouseLeftButtonDown+=(s,e)=> { if(e.LeftButton==MouseButtonState.Pressed) DragMove(); }; bar.Children.Add(title); root.Children.Add(Card(bar));
-            var scroll=new ScrollViewer { Content=body,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled }; Grid.SetRow(scroll,1); root.Children.Add(scroll);
+            root.RowDefinitions.Add(new RowDefinition { Height=GridLength.Auto });
+            var bar=new DockPanel(); var menu=Button("⋮",()=>Menu()); menu.ToolTip="Menu"; menu.Width=28; menu.Height=28; menu.Padding=new Thickness(0); menu.Background=surface; DockPanel.SetDock(menu,Dock.Right); bar.Children.Add(menu);
+            var move=Handle(24,Cursors.SizeAll); move.ToolTip="Drag to move";
+            move.Height=28; layoutHandles.Add(move);
+            move.PreviewMouseLeftButtonDown+=(sender,e)=> { if(!pinned && e.LeftButton==MouseButtonState.Pressed) { e.Handled=true; DragMove(); SaveBounds(); } };
+            move.DragDelta+=(sender,e)=> { if(!pinned) { Left+=e.HorizontalChange; Top+=e.VerticalChange; } };
+            move.DragCompleted+=(sender,e)=>SaveBounds(); bar.Children.Add(move); root.Children.Add(bar);
+            var scroll=new ScrollViewer { Content=body,VerticalScrollBarVisibility=ScrollBarVisibility.Hidden,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,PanningMode=PanningMode.VerticalOnly }; Grid.SetRow(scroll,1); root.Children.Add(scroll);
             var footer=new StackPanel(); Grid.SetRow(footer,2); root.Children.Add(footer);
             status.TextWrapping=TextWrapping.Wrap; status.FontSize=12; status.Foreground=new SolidColorBrush(Color.FromRgb(245,201,140)); footer.Children.Add(status);
             var captures=new System.Windows.Controls.Primitives.UniformGrid { Columns=4 };
-            var note=Button("✎",()=>Note()); note.ToolTip="Text note"; captures.Children.Add(note);
-            voice.ToolTip="Voice note · press and hold"; voice.FontSize=24;
+            captures.Children.Add(CaptureButton(CaptureIcon.Note,"Text note",()=>Note()));
             voice.PreviewMouseLeftButtonDown+=(s,e)=> { e.Handled=true; StartRecording(); };
             voice.PreviewMouseLeftButtonUp+=(s,e)=> { e.Handled=true; StopRecording(); };
             voice.LostMouseCapture+=(s,e)=> { if(recording!=null) StopRecording(); }; captures.Children.Add(voice);
-            var camera=Button("▣",()=>Camera()); camera.ToolTip="Take a photo"; captures.Children.Add(camera);
-            var upload=Button("↑",()=>Import()); upload.ToolTip="Upload image or file"; captures.Children.Add(upload); footer.Children.Add(Card(captures));
-            clock.Interval=TimeSpan.FromMilliseconds(200); clock.Tick+=(s,e)=> { voice.Content="● "+(DateTime.UtcNow-began).ToString(@"m\:ss"); if(DateTime.UtcNow-began>TimeSpan.FromMinutes(10)) StopRecording(); };
+            captures.Children.Add(CaptureButton(CaptureIcon.Camera,"Take a photo",()=>Camera()));
+            captures.Children.Add(CaptureButton(CaptureIcon.Upload,"Upload image or file",()=>Import()));
+            var captureCard=Card(captures); captureCard.Padding=new Thickness(6,4,6,4); captureCard.Margin=new Thickness(0,2,0,0); footer.Children.Add(captureCard);
+            var resizeRow=new Grid { Height=12 }; Grid.SetRow(resizeRow,3); root.Children.Add(resizeRow);
+            var resize=Handle(12,Cursors.SizeNS); resize.ToolTip="Drag to resize height"; resize.Margin=new Thickness(0,0,18,0);
+            resize.DragDelta+=(sender,e)=> { if(!pinned) Height=ResizeDimension(Height,e.VerticalChange,MinHeight); }; resize.DragCompleted+=(sender,e)=>SaveBounds(); resizeRow.Children.Add(resize); layoutHandles.Add(resize);
+            var corner=Handle(12,Cursors.SizeNWSE); corner.Width=18; corner.HorizontalAlignment=HorizontalAlignment.Right; corner.ToolTip="Drag to resize width and height";
+            corner.DragDelta+=(sender,e)=> { if(!pinned) { Width=ResizeDimension(Width,e.HorizontalChange,MinWidth); Height=ResizeDimension(Height,e.VerticalChange,MinHeight); } };
+            corner.DragCompleted+=(sender,e)=>SaveBounds(); resizeRow.Children.Add(corner); layoutHandles.Add(corner);
+            ApplyPin();
+            PreviewMouseRightButtonUp+=(sender,e)=> { e.Handled=true; Menu(); };
+            var liveHeading=new StackPanel { Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Center };
+            liveHeading.Children.Add(WidgetIcons.Create(CaptureIcon.Microphone)); elapsed.FontSize=12; elapsed.VerticalAlignment=VerticalAlignment.Center; liveHeading.Children.Add(elapsed); liveVoice.Children.Add(liveHeading);
+            System.Windows.Automation.AutomationProperties.SetName(audioLevel,"Microphone input level"); liveVoice.Children.Add(audioLevel);
+            clock.Interval=TimeSpan.FromMilliseconds(100); clock.Tick+=(sender,e)=> { elapsed.Text=(DateTime.UtcNow-began).ToString(@"m\:ss");
+                double level=recording==null?0:recording.Level; audioLevel.Value=Math.Max(level,audioLevel.Value*0.75); audioLevel.Foreground=level>=0.995?Brushes.OrangeRed:Brushes.DeepSkyBlue;
+                audioLevel.ToolTip=level>=0.995?"Input is near clipping":"Microphone input level";
+                if(DateTime.UtcNow-began>TimeSpan.FromMinutes(10)) StopRecording(); };
+            if(desktopIntegration) InstallTray(); else exitRequested=true;
             timer.Interval=TimeSpan.FromSeconds(60); timer.Tick+=async (s,e)=>await Refresh();
             Loaded+=async (s,e)=> { await RecoverRecordings(); Render(); timer.Start(); await Refresh(); };
             Closing+=(s,e)=> {
-                if(recording!=null) { e.Cancel=true; StopRecording(); return; }
-                timer.Stop(); lifetime.Cancel(); store.Change(v=> { v.config.left=Left; v.config.top=Top; v.config.width=Width; v.config.height=Height; });
+                if(!exitRequested) { e.Cancel=true; HideToTray(); return; }
+                if(recording!=null || stopping) { e.Cancel=true; if(recording!=null) StopRecording(); return; }
+                timer.Stop(); lifetime.Cancel(); SaveBounds();
+                if(tray!=null) { tray.Visible=false; var icon=tray.Icon; tray.Dispose(); icon.Dispose(); }
                 http.Dispose();
             };
             Render();
@@ -81,17 +117,66 @@ namespace DashboardWindows {
         public static TextBlock Text(string text) { return new TextBlock { Text=text,Foreground=Brushes.White,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(3) }; }
         public static Button Button(string label,Action click) { var b=new Button { Content=label }; if(click!=null) b.Click+=(s,e)=>click(); return b; }
         Border Card(UIElement child) { return new Border { Child=child,CornerRadius=new CornerRadius(18),Padding=new Thickness(12),Margin=new Thickness(0,4,0,4),Background=surface }; }
+        static Button CaptureButton(CaptureIcon icon,string label,Action click) {
+            var button=Button("",click); button.Content=WidgetIcons.Create(icon); button.ToolTip=label;
+            System.Windows.Automation.AutomationProperties.SetName(button,label);
+            button.Height=32; button.Padding=new Thickness(6); button.Margin=new Thickness(2); button.Background=Brushes.Transparent; return button;
+        }
+        static System.Windows.Controls.Primitives.Thumb Handle(double height,Cursor cursor) {
+            var thumb=new System.Windows.Controls.Primitives.Thumb { Height=height,Cursor=cursor };
+            thumb.Template=(ControlTemplate)System.Windows.Markup.XamlReader.Parse("<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='Thumb'><Border Background='#18161D28' CornerRadius='8'><Border Width='34' Height='3' CornerRadius='1.5' Background='#B0ABB6C5' HorizontalAlignment='Center' VerticalAlignment='Center'/></Border></ControlTemplate>");
+            return thumb;
+        }
+        public static double ResizeDimension(double current,double delta,double minimum) { return Math.Max(minimum,Math.Min(8192,current+delta)); }
+        void SaveBounds() { if(WindowState==WindowState.Normal) store.Change(v=> { v.config.left=Left; v.config.top=Top; v.config.width=Width; v.config.height=Height; }); }
+        public void Reveal() { Show(); if(WindowState==WindowState.Minimized) WindowState=WindowState.Normal; Activate(); }
+        public void RequestExit() { Exit(); }
+        IntPtr WindowMessage(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled) {
+            long command=wParam.ToInt64() & 0xFFF0;
+            if(pinned && message==0x0112 && (command==0xF000 || command==0xF010)) { handled=true; return IntPtr.Zero; }
+            return IntPtr.Zero;
+        }
+        public void PinInPlace(bool value) { pinned=value; SaveBounds(); store.Change(s=>s.config.pinned=value); ApplyPin(); }
+        void ApplyPin() { ResizeMode=pinned?ResizeMode.NoResize:ResizeMode.CanResize; foreach(var handle in layoutHandles) handle.IsEnabled=!pinned; }
+        bool CloseEditors() { foreach(Window owned in OwnedWindows.Cast<Window>().ToArray()) { owned.Close(); if(owned.IsVisible) { owned.Activate(); return false; } } return true; }
+        void HideToTray() { if(!CloseEditors()) return; if(recording!=null) StopRecording(); SaveBounds(); Hide(); }
+        void Exit() { if(!CloseEditors()) return; exitRequested=true; Close(); }
+        void InstallTray() {
+            tray=new System.Windows.Forms.NotifyIcon { Text="Dashboard",Icon=DesktopIntegration.TrayIcon(),Visible=true };
+            var menu=new System.Windows.Forms.ContextMenuStrip();
+            var toggle=new System.Windows.Forms.ToolStripMenuItem("Hide widget"); toggle.Click+=(sender,e)=>Dispatcher.BeginInvoke(new Action(()=> { if(IsVisible) HideToTray(); else Reveal(); })); menu.Items.Add(toggle);
+            Action<string,Action> add=(label,action)=> { var item=new System.Windows.Forms.ToolStripMenuItem(label); item.Click+=(sender,e)=>Dispatcher.BeginInvoke(action); menu.Items.Add(item); };
+            add("Refresh",async ()=>await Refresh()); add("Settings",()=> { Reveal(); Settings(); }); add("Check for updates",()=> { Reveal(); WindowsUpdates.Show(this,ApplyUpdate); });
+            var pin=new System.Windows.Forms.ToolStripMenuItem("Pin in place"); pin.Click+=(sender,e)=>Dispatcher.BeginInvoke(new Action(()=>PinInPlace(!pinned))); menu.Items.Add(pin);
+            var startup=new System.Windows.Forms.ToolStripMenuItem("Start with Windows");
+            startup.Click+=(sender,e)=>Dispatcher.BeginInvoke(new Action(()=> { try { bool enabled=!DesktopIntegration.IsStartupEnabled(); DesktopIntegration.SetStartup(enabled); store.Change(v=>v.config.startWithWindows=enabled); }
+                catch(Exception error) { SetStatus(error.Message); } })); menu.Items.Add(startup);
+            menu.Items.Add(new System.Windows.Forms.ToolStripSeparator()); add("Exit",()=>Exit());
+            menu.Opening+=(sender,e)=> { toggle.Text=IsVisible?"Hide widget":"Show widget"; startup.Checked=DesktopIntegration.IsStartupEnabled(); pin.Checked=pinned; };
+            tray.ContextMenuStrip=menu; tray.DoubleClick+=(sender,e)=>Dispatcher.BeginInvoke(new Action(()=>Reveal()));
+        }
         void Menu() {
             var menu=new ContextMenu();
             Action<string,Action> add=(name,action)=> { var item=new MenuItem { Header=name }; item.Click+=(s,e)=>action(); menu.Items.Add(item); };
             add("Refresh",async ()=>await Refresh()); add("Settings / Google Drive",()=>Settings()); add("Capture inbox",()=>Inbox());
-            add("Copy agent setup prompt",()=>CopyPrompt()); add("Check for updates",()=>Process.Start(new ProcessStartInfo("https://github.com/AudacityMicro/Dashboard2.0/releases/latest") { UseShellExecute=true }));
-            add("Close",()=>Close()); menu.IsOpen=true;
+            var pin=new MenuItem { Header="Pin in place",IsCheckable=true,IsChecked=pinned }; pin.Click+=(sender,e)=>PinInPlace(pin.IsChecked); menu.Items.Add(pin);
+            add("Copy agent setup prompt",()=>CopyPrompt()); add("Check for updates",()=>WindowsUpdates.Show(this,ApplyUpdate));
+            add("Hide to tray",()=>HideToTray()); add("Exit",()=>Exit()); menu.IsOpen=true;
         }
         async Task Refresh() {
             try { await sync.Run(); SetStatus(store.Snapshot().config.enabled ? "" : "Connect Google Drive through ⋮ → Settings. Notes work offline."); }
             catch(Exception e) { SetStatus(e.Message); }
             if(!lifetime.IsCancellationRequested) Render();
+        }
+        void ApplyUpdate(string stage) {
+            if(recording!=null || stopping) { SetStatus("Finish saving the recording before installing an update."); return; }
+            if(!CloseEditors()) return;
+            try {
+                UpdatePackage.Validate(stage,null);
+                string folder=AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+                Process.Start(new ProcessStartInfo(UpdatePackage.Inside(stage,"Dashboard.Update.exe"),Process.GetCurrentProcess().Id+" \""+folder+"\"") { UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=stage });
+                exitRequested=true; Close();
+            } catch(Exception error) { SetStatus("Update could not start: "+error.Message); }
         }
         void SetStatus(string value) { status.Text=value; status.Visibility=String.IsNullOrEmpty(value)?Visibility.Collapsed:Visibility.Visible; }
         public void Render() {
@@ -154,7 +239,7 @@ namespace DashboardWindows {
             }
             return p;
         }
-        Window Dialog(string title,double width,double height,UIElement content) { return new Window { Owner=this,Title=title,Width=width,Height=height,MinWidth=300,MinHeight=250,WindowStartupLocation=WindowStartupLocation.CenterOwner,Background=new SolidColorBrush(Color.FromRgb(24,29,38)),Foreground=Brushes.White,Content=content }; }
+        Window Dialog(string title,double width,double height,UIElement content) { return new Window { Owner=this,ShowInTaskbar=false,Title=title,Width=width,Height=height,MinWidth=300,MinHeight=250,WindowStartupLocation=WindowStartupLocation.CenterOwner,Background=new SolidColorBrush(Color.FromRgb(24,29,38)),Foreground=Brushes.White,Content=content }; }
         void Note() {
             var panel=new DockPanel { Margin=new Thickness(16) }; var actions=new StackPanel { Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right }; DockPanel.SetDock(actions,Dock.Bottom); panel.Children.Add(actions);
             var edit=new TextBox { Text=store.Snapshot().draft,AcceptsReturn=true,AcceptsTab=true,TextWrapping=TextWrapping.Wrap,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,FontSize=17 }; panel.Children.Add(edit);
@@ -179,13 +264,13 @@ namespace DashboardWindows {
             if(recording!=null || stopping) return;
             active=Store.New("voice","audio/wav","voice.wav"); active.voiceMode=store.Snapshot().config.voiceMode; active.state="recording";
             store.Change(s=>s.captures.Add(active)); recording=new Recorder();
-            try { recording.Start(store.Payload(active.id)); began=DateTime.UtcNow; voice.FontSize=27; voice.Height=90; voice.Background=Brushes.DarkRed; Mouse.Capture(voice); clock.Start(); }
+            try { recording.Start(store.Payload(active.id)); began=DateTime.UtcNow; voice.Height=64; elapsed.Text="0:00"; voice.Content=liveVoice; voice.Background=Brushes.DarkRed; Mouse.Capture(voice); clock.Start(); }
             catch(Exception e) { recording.Dispose(); recording=null; store.Change(s=>s.captures.Single(c=>c.id==active.id).state="failed"); SetStatus(e.Message); }
         }
         async void StopRecording() {
             if(recording==null || stopping) return; stopping=true; clock.Stop();
-            var item=active; recording.Dispose(); recording=null; Mouse.Capture(null); voice.Content="●"; voice.Height=Double.NaN; voice.FontSize=24; voice.Background=new SolidColorBrush(Color.FromArgb(37,63,73,89));
-            try { await FinishVoice(item); Render(); await Refresh(); } catch(Exception e) { SetStatus(e.Message); } finally { stopping=false; }
+            var item=active; recording.Dispose(); recording=null; Mouse.Capture(null); voice.Content=WidgetIcons.Create(CaptureIcon.Microphone); voice.Height=32; voice.Background=Brushes.Transparent;
+            try { await FinishVoice(item); Render(); await Refresh(); } catch(Exception e) { SetStatus(e.Message); } finally { stopping=false; if(exitRequested) Close(); }
         }
         async Task FinishVoice(Capture item) {
             string text="", result="none";
@@ -220,8 +305,12 @@ namespace DashboardWindows {
             SetStatus("Agent setup prompt copied.");
         }
         void Settings() {
+            if(settingsDialog!=null) { settingsDialog.Activate(); return; }
             var panel=new StackPanel { Margin=new Thickness(18) }; var window=Dialog("Dashboard settings",560,650,new ScrollViewer { Content=panel,VerticalScrollBarVisibility=ScrollBarVisibility.Auto });
             Action<string> label=t=>panel.Children.Add(Text(t));
+            var startup=new CheckBox { Content="Start Dashboard when I sign in to Windows",IsChecked=DesktopIntegration.IsStartupEnabled() };
+            startup.Click+=(sender,e)=> { try { DesktopIntegration.SetStartup(startup.IsChecked==true); store.Change(v=>v.config.startWithWindows=startup.IsChecked==true); }
+                catch(Exception error) { startup.IsChecked=DesktopIntegration.IsStartupEnabled(); MessageBox.Show(window,error.Message,"Startup"); } }; panel.Children.Add(startup);
             label("Background transparency"); var opacity=new Slider { Minimum=0.1,Maximum=1,Value=store.Snapshot().config.opacity,Margin=new Thickness(8) };
             opacity.ValueChanged+=(s,e)=> { surface.Color=Color.FromArgb((byte)(255*opacity.Value),18,23,31); }; panel.Children.Add(opacity);
             window.Closed+=(s,e)=>store.Change(v=>v.config.opacity=opacity.Value);
@@ -249,7 +338,8 @@ namespace DashboardWindows {
             } catch(Exception e) { MessageBox.Show(window,e.Message); } }));
             panel.Children.Add(Button("Copy updated agent setup prompt",()=>CopyPrompt()));
             panel.Children.Add(Button("Disconnect Google Drive",()=> { store.Disconnect(); SetStatus("Drive disconnected. Captures and tasks remain on this PC. Revoke the Google grant in your Google Account if desired."); Render(); }));
-            panel.Children.Add(Button("Done",()=>window.Close())); window.ShowDialog();
+            panel.Children.Add(Button("Done",()=>window.Close())); settingsDialog=window;
+            try { window.ShowDialog(); } finally { settingsDialog=null; }
         }
         async Task Discover() {
             var boards=await google.Find("Dashboard-agent.json"); var phones=await google.Find("Dashboard-phone-tasks.json"); var guides=await google.Find("Dashboard-agent-instructions.md");

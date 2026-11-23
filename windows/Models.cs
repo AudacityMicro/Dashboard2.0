@@ -52,7 +52,7 @@ namespace DashboardWindows {
         public string clientId = "", clientSecret = "", refreshToken = "", subject = "", email = "";
         public string agentFile = "", phoneFile = "", instructionsFile = "", desktopFile = "";
         public string voiceMode = "both"; public double opacity = 0.62, left = 100, top = 100, width = 420, height = 650;
-        public bool topmost, enabled, showHealth;
+        public bool topmost, enabled, showHealth, startWithWindows, pinned;
     }
     public class State {
         public Config config = new Config(); public string deviceId = Guid.NewGuid().ToString("N"), draft = "", health = "", phoneState = "";

@@ -21,6 +21,8 @@ class Tests {
     }
     static async Task Run(string root) {
         Check(Google.Challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")=="E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM","RFC 7636 PKCE known vector");
+        Check(Recorder.PcmLevel(new byte[32])==0,"audio meter reports silence without a fabricated signal");
+        Check(Recorder.PcmLevel(new byte[] {0,128})==1 && Recorder.PcmLevel(new byte[] {255,63})>0.8,"audio meter scales real PCM input and handles negative full scale");
         Check(Google.Random().Length==43 && Google.Random()!=Google.Random(),"cryptographic nonce and verifier shape");
         var store=new Store(root);
         Check(!store.Snapshot().config.enabled && !store.Snapshot().config.showHealth,"Drive and health sharing initially off");
@@ -57,6 +59,11 @@ class Tests {
             store.Change(s=>s.config.showHealth=true); server.Health=true; await sync.Run();
             Check(store.Snapshot().health.Contains("consumedKcal") && !store.Snapshot().health.Contains("private-health-detail"),"PC caches health totals without detailed agent query records");
         }
+        await ConcurrentEditsChecks.Run(Path.Combine(root,"concurrent"),Check);
+        LayoutChecks.Run(Path.Combine(root,"layout"),Check);
+        await UpdateChecks.Run(Path.Combine(root,"updater"),Check);
+        Check(Widget.ResizeDimension(400,-500,300)==300 && Widget.ResizeDimension(400,120,300)==520,"bottom resize grows and shrinks while respecting minimum height");
+        Check(DesktopIntegration.StartupCommand(@"C:\Example Folder\Dashboard.exe").EndsWith("\" --startup"),"startup quotes paths containing spaces");
         var snapshot=store.Snapshot(); snapshot.config.subject="not persisted";
         Check(store.Snapshot().config.subject!="not persisted","snapshots cannot mutate live state");
         try { store.Change(s=> { s.draft="partial"; throw new InvalidOperationException(); }); } catch(InvalidOperationException) {}

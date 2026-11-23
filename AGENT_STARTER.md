@@ -312,6 +312,11 @@ Persist your per-device/task revision ledger before changing the agent board.
 Process each edit once; never treat an unchanged snapshot as a new user action.
 
 Read ALL registered device states and the current board before reconciling.
+Merge edits independently by task ID: checking different items on phone and
+desktop within one refresh window must preserve BOTH edits. If both devices
+choose the same completed value for one task, coalesce them and acknowledge
+every observed revision without asking a needless conflict question. A full
+device tasks snapshot is never permission to undo another device's edits.
 For the same logical task, prefer the latest explicit user edit when timestamps
 are trustworthy. For close/unknown times, clock skew or ambiguous intent, ask the
 user instead of silently undoing a choice. Do not compare revision numbers across

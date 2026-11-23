@@ -60,4 +60,24 @@ class DeviceTaskEditsTest {
         val edit = first.getJSONArray("taskEdits").getJSONObject(0)
         assertTrue(edit.getBoolean("legacy")); assertTrue(edit.isNull("changedAt"))
     }
+    @Test fun separateChecksAndANewerEditSurviveTheSameRefreshWindow() = store { s ->
+        val remote = JSONObject(board("a", false)).apply {
+            getJSONArray("tasks").put(JSONObject().put("id", "b").put("title", "B").put("completed", false))
+        }
+        s.acceptBoard(remote.toString())
+        s.complete(s.snapshot().tasks.single { it.id == "a" }, true)
+        val outgoing = JSONObject(s.phoneState())
+        val first = outgoing.getJSONArray("taskEdits").getJSONObject(0)
+        // Another checkbox changes while the first exported state is still in flight.
+        s.complete(s.snapshot().tasks.single { it.id == "b" }, true)
+        s.complete(s.snapshot().tasks.single { it.id == "a" }, false)
+        remote.getJSONArray("tasks").getJSONObject(0).put("completed", true)
+        remote.put("acknowledgedTaskEdits", JSONArray().put(JSONObject().put("deviceId", outgoing.getString("deviceId"))
+            .put("taskId", "a").put("revision", first.getLong("revision"))))
+        s.acceptBoard(remote.toString())
+        assertFalse(s.snapshot().tasks.single { it.id == "a" }.completed)
+        assertTrue(s.snapshot().tasks.single { it.id == "b" }.completed)
+        val pending = JSONObject(s.phoneState()).getJSONArray("taskEdits")
+        assertEquals(setOf("a", "b"), (0 until pending.length()).map { pending.getJSONObject(it).getString("id") }.toSet())
+    }
 }

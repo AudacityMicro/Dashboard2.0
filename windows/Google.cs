@@ -128,6 +128,16 @@ namespace DashboardWindows {
         public async Task Run() {
             if (!await gate.WaitAsync(0)) return;
             try {
+                // Edits made while a request is in flight receive an immediate follow-up pass.
+                // Keep work bounded if the user continues clicking; the durable journal remains queued.
+                for(int pass=0;pass<3;pass++) {
+                    long revision=store.Snapshot().revision;
+                    await Pass();
+                    if(store.Snapshot().revision==revision) break;
+                }
+            } finally { gate.Release(); }
+        }
+        async Task Pass() {
                 var s=store.Snapshot(); if(!s.config.enabled) return;
                 if(String.IsNullOrEmpty(s.config.agentFile) || String.IsNullOrEmpty(s.config.phoneFile)) throw new InvalidOperationException("Choose your phone's dashboard in Settings, or paste its setup prompt.");
                 store.Accept(await google.Read(s.config.agentFile));
@@ -144,7 +154,6 @@ namespace DashboardWindows {
                 await google.Write(s.config.desktopFile,store.Export());
                 foreach(var original in store.Snapshot().captures.Where(c=>c.state=="pending").ToList()) await Upload(original);
                 store.Change(v=>v.lastSync=DateTimeOffset.UtcNow.ToString("o"));
-            } finally { gate.Release(); }
         }
         async Task Upload(Capture c) {
             if(c.voiceMode=="transcript" && c.kind=="voice" && c.transcriptionStatus!="ready") return;

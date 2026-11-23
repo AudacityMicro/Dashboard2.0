@@ -23,18 +23,26 @@ foreach($package in $packages) {
   try { $inputStream.CopyTo($outputStream) } finally { $inputStream.Dispose(); $outputStream.Dispose() }
  } finally { $zip.Dispose() }
 }
-$refs=@('System.dll','System.Xaml.dll','System.Core.dll','System.Net.Http.dll','System.Web.dll','System.Web.Extensions.dll','System.Security.dll','System.Drawing.dll','System.Windows.Forms.dll') | ForEach-Object { '/r:'+ (Join-Path $framework $_) }
+$refs=@('System.dll','System.Xaml.dll','System.Core.dll','System.Net.Http.dll','System.Web.dll','System.Web.Extensions.dll','System.Security.dll','System.Drawing.dll','System.Windows.Forms.dll','System.IO.Compression.dll','System.IO.Compression.FileSystem.dll') | ForEach-Object { '/r:'+ (Join-Path $framework $_) }
 $speech=Get-ChildItem -LiteralPath "$env:WINDIR/Microsoft.NET/assembly/GAC_MSIL/System.Speech" -Filter System.Speech.dll -Recurse | Select-Object -First 1 -ExpandProperty FullName
 $refs+='/r:'+$speech
 $refs+=Get-ChildItem -LiteralPath $lib -Filter '*.dll' | ForEach-Object { '/r:'+ $_.FullName }
 $refs+=@('PresentationCore.dll','PresentationFramework.dll','WindowsBase.dll','WindowsFormsIntegration.dll') | ForEach-Object { '/r:'+ (Join-Path "$framework/WPF" $_) }
 $sources=Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.cs' | ForEach-Object FullName
+$taskGradle=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../app/app/build.gradle.kts') -Raw
+$taskVersionMatch=[regex]::Match($taskGradle,'versionName = "([0-9A-Za-z.\-]+)"')
+if(-not $taskVersionMatch.Success) { throw 'Cannot find the paired launcher version' }
+$taskGenerated=Join-Path $out 'BuildVersion.cs'
+('namespace DashboardWindows { public static class BuildVersion { public const string Name="'+$taskVersionMatch.Groups[1].Value+'"; public const string Tag="v"+Name; } }') | Set-Content -LiteralPath $taskGenerated -Encoding utf8
+$sources+=(Resolve-Path -LiteralPath $taskGenerated).Path
 & $compiler /nologo /target:winexe /platform:anycpu /optimize+ /main:DashboardWindows.Program "/out:$out/Dashboard.exe" @refs @sources
 if($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
 Copy-Item -LiteralPath "$PSScriptRoot/Dashboard.exe.config" -Destination $out
 Get-ChildItem -LiteralPath $lib -Filter '*.dll' | Copy-Item -Destination $out
+& $compiler /nologo /target:winexe /optimize+ "/out:$out/Dashboard.Update.exe" @refs (Resolve-Path -LiteralPath "$PSScriptRoot/UpdatePackage.cs").Path (Resolve-Path -LiteralPath "$PSScriptRoot/updater/ApplyUpdate.cs").Path
+if($LASTEXITCODE -ne 0) { throw 'Update helper build failed' }
 if($Test) {
- & $compiler /nologo /target:exe "/out:$out/Tests.exe" "/r:$out/Dashboard.exe" @refs (Resolve-Path -LiteralPath "$PSScriptRoot/tests/Tests.cs").Path
+ & $compiler /nologo /target:exe "/out:$out/Tests.exe" "/r:$out/Dashboard.exe" @refs @(Get-ChildItem -LiteralPath "$PSScriptRoot/tests" -Filter "*.cs" | ForEach-Object FullName)
  if($LASTEXITCODE -ne 0) { throw 'Test build failed' }
  & "$out/Tests.exe"
  if($LASTEXITCODE -ne 0) { throw 'Windows tests failed' }

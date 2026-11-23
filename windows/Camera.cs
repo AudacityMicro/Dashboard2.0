@@ -9,7 +9,7 @@ namespace DashboardWindows {
     public sealed class CameraWindow : Window {
         VideoCaptureDevice source; System.Drawing.Bitmap latest; readonly object gate=new object(); readonly Image preview=new Image(); DateTime last;
         public CameraWindow(Window owner,Action<string> save) {
-            Owner=owner; Title="Take a photo"; Width=640; Height=520; WindowStartupLocation=WindowStartupLocation.CenterOwner;
+            Owner=owner; ShowInTaskbar=false; Title="Take a photo"; Width=640; Height=520; WindowStartupLocation=WindowStartupLocation.CenterOwner;
             Background=System.Windows.Media.Brushes.Black;
             var panel=new DockPanel(); Content=panel;
             var devices=new FilterInfoCollection(FilterCategory.VideoInputDevice);

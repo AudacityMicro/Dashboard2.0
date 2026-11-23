@@ -19,6 +19,13 @@ namespace DashboardWindows {
         [DllImport("winmm.dll")] static extern int waveInClose(IntPtr handle);
         readonly object gate=new object(); readonly List<IntPtr> headers=new List<IntPtr>(); readonly List<GCHandle> pins=new List<GCHandle>();
         Callback callback; IntPtr handle; FileStream file; volatile bool running;
+        int level;
+        public double Level { get { return System.Threading.Interlocked.CompareExchange(ref level,0,0)/1000.0; } }
+        public static double PcmLevel(byte[] bytes) {
+            int peak=0;
+            for(int i=0;i+1<bytes.Length;i+=2) { int sample=(short)(bytes[i] | bytes[i+1]<<8); peak=Math.Max(peak,Math.Abs(sample)); }
+            return peak==0?0:Math.Max(0,Math.Min(1,1+20*Math.Log10(peak/32768.0)/60));
+        }
         static readonly uint size=(uint)Marshal.SizeOf(typeof(Header));
         public void Start(string path) {
             file=new FileStream(path,FileMode.CreateNew,FileAccess.ReadWrite,FileShare.Read); file.Write(new byte[44],0,44); file.Flush(true);
@@ -41,7 +48,7 @@ namespace DashboardWindows {
                     // A late driver callback must never dereference a header freed during Stop.
                     if(file==null || !headers.Contains(p)) return;
                     var h=(Header)Marshal.PtrToStructure(p,typeof(Header));
-                    if(h.recorded>0 && file.Length+h.recorded <= 25*1024*1024) { var b=new byte[h.recorded]; Marshal.Copy(h.data,b,0,b.Length); file.Write(b,0,b.Length); }
+                    if(h.recorded>0 && file.Length+h.recorded <= 25*1024*1024) { var b=new byte[h.recorded]; Marshal.Copy(h.data,b,0,b.Length); System.Threading.Interlocked.Exchange(ref level,(int)(PcmLevel(b)*1000)); file.Write(b,0,b.Length); }
                     if(running) waveInAddBuffer(wave,p,size);
                 }
             } catch { running=false; }
