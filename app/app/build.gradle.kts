@@ -36,8 +36,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = System.getenv("VERSION_CODE_OVERRIDE")?.toIntOrNull() ?: 2026091520
-        versionName = "0.1.0-preview.22"
+        versionCode = System.getenv("VERSION_CODE_OVERRIDE")?.toIntOrNull() ?: 2026091521
+        versionName = "1.0.0"
     }
 
     buildTypes {
@@ -52,7 +52,8 @@ android {
         }
         debug {
             applicationIdSuffix = ".debug"
-            isDebuggable = true
+            // Preserve installed package/signing identity for sideloaded distribution upgrades.
+            isDebuggable = !providers.gradleProperty("dashboardDistribution").map { it.toBoolean() }.getOrElse(false)
         }
         create("nightly") {
             initWith(getByName("release"))

@@ -1,4 +1,4 @@
-# Dashboard Windows widget — development preview
+# Dashboard Windows widget
 
 A native WPF companion for Dashboard 2.0, using the .NET Framework 4.8 already
 included with supported Windows 10/11 installations. No Electron, embedded browser,
@@ -12,7 +12,7 @@ in-flight network tests and the paired Android revision/acknowledgment tests.
 
 ## Run
 
-Extract the entire preview ZIP into a folder and run `Dashboard.exe`. Keep its DLLs,
+Extract the entire ZIP into a folder and run `Dashboard.exe`. Keep its DLLs,
 configuration and licenses beside it. Drag the small top handle to move the
 widget, drag the bottom handle up/down to resize its height, and use **⋮ → Settings** for background transparency
 and optional always-on-top. Background alpha changes without fading the text.
@@ -38,7 +38,7 @@ It does not install a service or require administrator access. Disable it from t
 tray menu or Settings. Keep the extracted folder in its chosen location; if you move
 it, re-enable startup from the new copy to update the saved path.
 
-Features in this preview:
+Features:
 
 - Agent updates rendered as safe Markdown: headings, paragraphs, bold/italic, lists,
   quotes, code and HTTP(S) links. HTML is displayed as text, never executed.
@@ -77,11 +77,10 @@ their own project. Never commit the downloaded client JSON or user tokens.
    or paste the compact setup prompt copied from the phone to choose exact file IDs.
    The requested Drive scope is `drive.file`, plus OpenID/email for account identity.
    Broad Drive scopes are not silently requested if file access is unavailable.
-4. Update the phone to this branch's Preview 22+ before using shared task editing.
+4. Update the phone to Dashboard 1.0.0 (or Preview 22+) before using shared task editing.
    Sync the Windows state, then copy its updated agent setup prompt. Guide version
    10 must be merged into the existing agent instructions, preserving custom edits.
-   Its version-pinned release URL becomes available when Preview 22 is published;
-   until then, review this branch's complete `AGENT_STARTER.md` directly.
+   The prompt links to the complete version-pinned `AGENT_STARTER.md` in this release.
 
 Existing captures and file IDs stay pinned to the original Google account. A
 different account is rejected; the app does not mix pending captures between users.

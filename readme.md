@@ -1,15 +1,15 @@
 # Dashboard2.0
 
-**[Download Android APK](https://github.com/AudacityMicro/Dashboard2.0/releases/latest/download/Dashboard-2.0-preview.apk)**
+**[Download Android APK](https://github.com/AudacityMicro/Dashboard2.0/releases/latest/download/Dashboard-2.0.apk)**
 
 **[Download Windows widget](https://github.com/AudacityMicro/Dashboard2.0/releases/latest/download/Dashboard-Windows.zip)** · [Windows setup and build instructions](windows/README.md)
 
-[Preview release and APK checksum](https://github.com/AudacityMicro/Dashboard2.0/releases/latest) · [Installation and Google Drive setup](DASHBOARD.md) · [Agent setup](AGENT_BOARD.md)
+[Release downloads and checksums](https://github.com/AudacityMicro/Dashboard2.0/releases/latest) · [Installation and Google Drive setup](DASHBOARD.md) · [Agent setup](AGENT_BOARD.md)
 
 [Website](https://audacitymicro.github.io/Dashboard2.0/) · [Privacy policy](https://audacitymicro.github.io/Dashboard2.0/privacy.html) · [Terms](https://audacitymicro.github.io/Dashboard2.0/terms.html)
 
 Install the APK on your Android phone and select **Dashboard** as your Home app.
-This is a preview build: local captures and tasks work offline; Google Drive sync
+Local captures and tasks work offline; Google Drive sync
 requires the one-time OAuth setup described in the setup guide.
 
 A Kvaesitso-based Android launcher with offline text, optional offline English voice transcripts,

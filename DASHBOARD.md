@@ -299,6 +299,13 @@ can configure/download the required SDK. Set `JAVA_HOME` and `ANDROID_HOME`, or 
 ./gradlew :app:app:connectedDefaultDebugAndroidTest
 ```
 
+For a sideloaded distribution APK, add `-PdashboardDistribution=true` to the Gradle
+command. This disables Android debugging while preserving the installed `.debug`
+package identity and its existing signing key, so current users can upgrade without
+losing data or changing their OAuth registration. Keep the signing key private and
+use the same key for every update. This GitHub distribution is separate from Play
+Store publishing.
+
 Check that the connected-test report contains a nonzero test count. With the current
 Android 17 emulator/toolchain, Gradle may report success with zero discovered tests.
 In that case, install both built APKs and invoke the runner directly (use your SDK's

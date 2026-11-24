@@ -437,7 +437,7 @@ object AgentSetup {
     """.trimIndent()
 
     // Keep clipboard handoff small; the complete contract lives in the Drive guide.
-    const val STARTER_URL = "https://raw.githubusercontent.com/AudacityMicro/Dashboard2.0/v0.1.0-preview.22/AGENT_STARTER.md"
+    const val STARTER_URL = "https://raw.githubusercontent.com/AudacityMicro/Dashboard2.0/v1.0.0/AGENT_STARTER.md"
 
     fun prompt(board: DashboardSnapshot): String {
         if (board.instructionsFileId.isBlank() || board.agentFileId.isBlank() || board.phoneFileId.isBlank()) return """

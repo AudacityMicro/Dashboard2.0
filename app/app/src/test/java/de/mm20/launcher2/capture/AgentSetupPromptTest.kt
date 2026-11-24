@@ -40,6 +40,6 @@ class AgentSetupPromptTest {
         val publicGuide = File(root, "AGENT_STARTER.md").readText(Charsets.UTF_8).replace("\r\n", "\n").trimEnd()
         assertEquals(AgentSetup.instructions, publicGuide)
         assertTrue(publicGuide.length > 15000)
-        assertTrue(AgentSetup.STARTER_URL.endsWith("/v0.1.0-preview.22/AGENT_STARTER.md"))
+        assertTrue(AgentSetup.STARTER_URL.endsWith("/v1.0.0/AGENT_STARTER.md"))
     }
 }
